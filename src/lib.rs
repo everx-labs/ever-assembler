@@ -24,6 +24,7 @@ mod macros;
 mod parse;
 mod complex;
 mod simple;
+mod convert;
 
 mod writer;
 use writer::{CodePage0, Writer};
