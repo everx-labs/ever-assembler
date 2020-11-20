@@ -20,11 +20,12 @@ use super::errors::{
 
 use super::{
     CompileResult, Engine, EnsureParametersCountInRange,
+    convert::to_big_endian_octet_string,
     errors::ToOperationParameterError,
     parse::*,
     writer::Writer,
 };
-use num::{bigint::Sign, BigInt, Num};
+use num::{BigInt, Num};
 
 trait CommandBehaviourModifier {
     fn modify(code: Vec<u8>) -> Vec<u8>;
@@ -247,71 +248,6 @@ fn compile_setcontargs<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, dest
     destination.write_command(&[0xEC, ((rargs & 0x0F) << 4) | (nargs & 0x0F)])
 }
 
-#[inline]
-fn bits_to_bytes(length_in_bits: usize) -> usize {
-    (length_in_bits + 7) >> 3
-}
-
-#[inline]
-fn bitsize(value: &BigInt) -> usize {
-    if (value == &0.into()) || (value == &(-1).into()) {
-        return 1
-    }
-    let res = value.bits();
-    if value.sign() == Sign::Plus {
-        return res + 1
-    }
-    // For negative values value.bits() returns correct result only when value is power of 2.
-    let mut modpow2 = -value;
-    modpow2 &= &modpow2 - 1;
-    if modpow2.sign() == Sign::NoSign {
-        return res
-    }
-    res + 1
-}
-
-/// Encodes value as big endian octet string for PUSHINT primitive using the format
-/// from TVM Spec A.3.1:
-///  "82lxxx — PUSHINT xxx, where 5-bit 0 ≤ l ≤ 30 determines the length n = 8l + 19
-///  of signed big-endian integer xxx. The total length of this instruction
-///  is l + 4 bytes or n + 13 = 8l + 32 bits."
-fn to_big_endian_octet_string(value: &BigInt) -> Vec<u8> {
-    let mut n = bitsize(value);
-    if n < 19 {
-        n = 19;
-    } else {
-        let excessive = n & 0b111;
-        if excessive == 0 || excessive > 3 {
-            // Rounding to full octet and adding 3.
-            n = (((n + 7) as isize & -8) + 3) as usize;
-        } else {
-            n += 3 - excessive;
-        }
-    };
-
-    let bytelen = bits_to_bytes(n);
-    let mut serialized_val = value.to_signed_bytes_be();
-    let prefixlen = bytelen - serialized_val.len();
-    let mut ret: Vec<u8> = Vec::with_capacity(bytelen);
-    let is_negative = value.sign() == Sign::Minus;
-    let mut prefix: Vec<u8> = if prefixlen == 0 {
-        let new_serialized_val = serialized_val.split_off(1);
-        let first_element = serialized_val;
-        serialized_val = new_serialized_val;
-        first_element
-    } else if is_negative {
-        vec![0xFF; prefixlen]
-    } else {
-        vec![0x00; prefixlen]
-    };
-    debug_assert_eq!((n - 19) & 0b111, 0);
-    prefix[0] = (n - 19) as u8 | (prefix[0] & 0b111);
-
-    ret.append(&mut prefix);
-    ret.append(&mut serialized_val);
-    ret
-}
-
 #[cfg_attr(rustfmt, rustfmt_skip)]
 fn compile_pushint<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
     par.assert_len(1)?;
@@ -506,7 +442,7 @@ fn compile_throw_helper<T: Writer>(par: &Vec<&str>, short_opcode: u8, long_opcod
 }
 
 pub(super) fn compile_slice(par: &str, mut prefix: Vec<u8>, offset: usize, r: usize, x: usize)
--> Result<Vec<u8>, ParameterError> {
+-> std::result::Result<Vec<u8>, ParameterError> {
     // prefix - offset..r..x - data
     let shift = (offset + r + x) % 8;
     let mut buffer = parse_slice(par, shift)?;
