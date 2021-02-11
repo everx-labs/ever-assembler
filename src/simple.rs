@@ -81,6 +81,7 @@ impl<T: Writer> Engine<T> {
         CALLCCARGS  c1 = parse_const_u4;
                     c2 = parse_const_i4      => 0xDB, 0x36, (c1 << 4) | c2
         CALLCCVARARGS                        => 0xDB, 0x3B
+        CALLREF                              => 0xDB, 0x3C
         CALLX                                => 0xD8
         CALLXVARARGS                         => 0xDB, 0x38
         CAR                                  => 0x6F, 0x10
@@ -289,7 +290,13 @@ impl<T: Writer> Engine<T> {
         INC                                  => 0xA4
         INTSORT2                             => 0xB6, 0x0A
         INVERT                               => 0xED, 0xF8
+        IFELSEREF                            => 0xE3, 0x0E
+        IFREF                                => 0xE3, 0x00
+        IFREFELSE                            => 0xE3, 0x0D
         IFREFELSEREF                         => 0xE3, 0x0F
+        IFNOTREF                             => 0xE3, 0x01
+        IFJMPREF                             => 0xE3, 0x02
+        IFNOTJMPREF                          => 0xE3, 0x03
         INDEX c = parse_const_u4             => 0x6F, 0x10 | c
         INDEXQ c = parse_const_u4            => 0x6F, 0x60 | c
         INDEXVAR                             => 0x6F, 0x81
@@ -480,6 +487,7 @@ impl<T: Writer> Engine<T> {
             s1 = parse_const_u8_plus_one     => 0x84, s1
         PUSHREF                              => 0x88
         PUSHREFSLICE                         => 0x89
+        PUSHREFCONT                          => 0x8A
         PUSHROOT                             => 0xED, 0x44
         PUXC   
             s1 = parse_stack_register_u4;
