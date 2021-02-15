@@ -91,6 +91,51 @@ fn compile_call<T: Writer>(_engine: &mut Engine<T>,  par: &Vec<&str>, destinatio
     }
 }
 
+fn compile_ref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, command: &[u8]) -> CompileResult {
+    if engine.line_no == 0 && engine.char_no == 0 {
+        // the case of instruction form without an argument
+        return destination.write_command(command);
+    }
+    par.assert_len(1)?;
+    let cont = engine
+        .compile(par[0])
+        .map_err(|e| OperationError::Nested(Box::new(e)))?
+        .finalize();
+    destination.write_composite_command(command, cont)
+}
+
+fn compile_callref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xDB, 0x3C]);
+}
+
+fn compile_ifref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x00]);
+}
+
+fn compile_ifnotref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x01]);
+}
+
+fn compile_ifjmpref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x02]);
+}
+
+fn compile_ifnotjmpref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x03]);
+}
+
+fn compile_ifrefelse<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x0D]);
+}
+
+fn compile_ifelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0xE3, 0x0E]);
+}
+
+fn compile_pushrefcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0x8A]);
+}
+
 fn compile_pop<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T) -> CompileResult {
     par.assert_len(1)?;
     compile_with_any_register(par[0], &[0x30], &[0x57, 0x00], &[0xED, 0x50], destination)
@@ -519,11 +564,18 @@ impl<T: Writer> Engine<T> {
         self.COMPILE_ROOT.insert("2SWAP",          Engine::SWAP2);
         self.COMPILE_ROOT.insert("CALL",           compile_call);
         self.COMPILE_ROOT.insert("CALLDICT",       compile_call);
+        self.COMPILE_ROOT.insert("CALLREF",        compile_callref);
         self.COMPILE_ROOT.insert("CALLXARGS",      compile_callxargs);
         self.COMPILE_ROOT.insert("BCHKBITS",       compile_bchkbits);
         self.COMPILE_ROOT.insert("BCHKBITSQ",      compile_bchkbitsq);
         self.COMPILE_ROOT.insert("DEBUGSTR",       compile_dumptosfmt);
         self.COMPILE_ROOT.insert("DUMPTOSFMT",     compile_dumptosfmt);
+        self.COMPILE_ROOT.insert("IFREF",          compile_ifref);
+        self.COMPILE_ROOT.insert("IFNOTREF",       compile_ifnotref);
+        self.COMPILE_ROOT.insert("IFJMPREF",       compile_ifjmpref);
+        self.COMPILE_ROOT.insert("IFNOTJMPREF",    compile_ifnotjmpref);
+        self.COMPILE_ROOT.insert("IFREFELSE",      compile_ifrefelse);
+        self.COMPILE_ROOT.insert("IFELSEREF",      compile_ifelseref);
         self.COMPILE_ROOT.insert("JMPDICT",        Engine::JMP);
         self.COMPILE_ROOT.insert("LOGSTR",         compile_logstr);
         self.COMPILE_ROOT.insert("LSHIFT",         Div::<Signaling>::lshift);
@@ -553,6 +605,7 @@ impl<T: Writer> Engine<T> {
         self.COMPILE_ROOT.insert("PUSH",           compile_push);
         self.COMPILE_ROOT.insert("PUSHCONT",       compile_pushcont);
         self.COMPILE_ROOT.insert("PUSHINT",        compile_pushint);
+        self.COMPILE_ROOT.insert("PUSHREFCONT",    compile_pushrefcont);
         self.COMPILE_ROOT.insert("PUSHSLICE",      compile_pushslice);
         self.COMPILE_ROOT.insert("SETCONTARGS",    compile_setcontargs);
         self.COMPILE_ROOT.insert("SWAP",           compile_xchg);
