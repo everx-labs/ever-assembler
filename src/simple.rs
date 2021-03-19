@@ -19,6 +19,7 @@ use super::{
     writer::Writer,
 };
 
+use crate::debug::{DbgNode, DbgPos};
 
 // Compilation engine *********************************************************
 

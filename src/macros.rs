@@ -28,10 +28,11 @@ macro_rules! simple_commands {
         pub fn $command(
             &mut self, 
             par: &Vec<&str>, 
-            destination: &mut T
+            destination: &mut T,
+            pos: DbgPos
         ) -> CompileResult {
             par.assert_empty()?;
-            destination.write_command(&[$($code),*])
+            destination.write_command(&[$($code),*], DbgNode::from(pos))
         }  
     };
 
@@ -41,7 +42,8 @@ macro_rules! simple_commands {
         pub fn $command(
             &mut self, 
             par: &Vec<&str>, 
-            destination: &mut T
+            destination: &mut T,
+            pos: DbgPos
         ) -> CompileResult {
             let n_params = simple_commands!(@count $($pname = $parser;)*);
             par.assert_len(n_params as usize)?;
@@ -54,7 +56,7 @@ macro_rules! simple_commands {
             $({
                 result.push($code);
             })*
-            destination.write_command(result.as_slice())
+            destination.write_command(result.as_slice(), DbgNode::from(pos))
         }
     };
 
