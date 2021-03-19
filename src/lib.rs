@@ -14,12 +14,15 @@
 use std::{collections::HashMap, ops::RangeInclusive};
 use ton_types::{Cell, SliceData};
 
+pub use debug::{Line, Lines, DbgInfo, lines_to_string};
+
 mod errors;
 pub use errors::{
     CompileError, OperationError, ParameterError, Position, 
     ToOperationParameterError,
 };
 
+mod debug;
 mod macros;
 mod parse;
 mod complex;
@@ -28,11 +31,12 @@ mod convert;
 
 mod writer;
 use writer::{CodePage0, Writer};
+pub use debug::DbgPos;
 
 // Basic types *****************************************************************
 /// Operation Compilation result
 type CompileResult = Result<(), OperationError>;
-type CompileHandler<T> = fn(&mut Engine<T>, &Vec<&str>, destination:&mut T) -> CompileResult;
+type CompileHandler<T> = fn(&mut Engine<T>, &Vec<&str>, destination:&mut T, pos: DbgPos) -> CompileResult;
 
 // CompileError::Operation handlers ***********************************************************
 trait EnsureParametersCountInRange {
@@ -119,7 +123,12 @@ impl<T: Writer> CommandContext<T> {
         let mut n = par.len();
         loop {
             let par = &par[0..n].iter().map(|(_, _, e, _)| *e).collect::<Vec<_>>();
-            match rule(engine, par, destination) {
+            let pos = if !engine.lines.is_empty() {
+                engine.lines[self.line_no_cmd - 1].pos.clone()
+            } else {
+                DbgPos::default()
+            };
+            match rule(engine, par, destination, pos) {
                 Ok(_) => break,
                 Err(OperationError::TooManyParameters) if n != 0 => {
                     n -= 1;
@@ -171,6 +180,7 @@ impl<T: Writer> CommandContext<T> {
 pub struct Engine<T: Writer> {
     line_no: usize,
     char_no: usize,
+    lines: Lines,
     COMPILE_ROOT: HashMap<&'static str, CompileHandler<T>>,
 }
 
@@ -178,10 +188,11 @@ pub struct Engine<T: Writer> {
 impl<T: Writer> Engine<T> {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    pub fn new() -> Engine<T> {
+    pub fn new(lines: Lines) -> Engine<T> {
         let mut ret = Engine::<T> {
             line_no: 1,
             char_no: 1,
+            lines,
             COMPILE_ROOT: HashMap::new(),
         };
         ret.add_complex_commands();
@@ -347,7 +358,16 @@ pub fn compile_code(code: &str) -> Result<SliceData, CompileError> {
 
 pub fn compile_code_to_cell(code: &str) -> Result<Cell, CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
-    Engine::<CodePage0>::new().compile(code).map(|code| code.finalize().into())
+    Engine::<CodePage0>::new(vec![]).compile(code).map(|code| code.finalize().0.into())
+}
+
+pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), CompileError> {
+    log::trace!(target: "tvm", "begin compile\n");
+    let source = lines_to_string(&code);
+    let (builder, dbg) = Engine::<CodePage0>::new(code).compile(source.as_str()).map(|code| code.finalize())?;
+    let cell = builder.into();
+    let dbg_info = DbgInfo::from(&cell, &dbg);
+    Ok((cell.into(), dbg_info))
 }
 
 
