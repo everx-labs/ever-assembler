@@ -12,7 +12,7 @@
 */
 
 use crate::OperationError;
-use ton_types::BuilderData;
+use ton_types::{BuilderData, SliceData};
 
 use crate::debug::{DbgNode, DbgPos};
 
@@ -70,16 +70,9 @@ impl Writer for CodePage0 {
 
                 *self.cells.last_mut().unwrap() = last;
 
-                let dbgnode = self.dbg.last_mut().unwrap();
-                dbgnode.append(offset, pos.clone());
-
-                let mut stub = dbg.clone();
-                stub.children.clear();
-                dbgnode.inline_node(offset + command.len() * 8, stub);
-
-                for child in dbg.children {
-                    dbgnode.append_node(child);
-                }
+                let node = self.dbg.last_mut().unwrap();
+                node.append(offset, pos);
+                node.append_node(dbg);
                 return Ok(());
             }
         }
@@ -105,11 +98,19 @@ impl Writer for CodePage0 {
         while !self.cells.is_empty() {
             let mut destination = self.cells.pop()
                 .expect("vector is not empty");
-            destination.append_reference(cursor);
-            cursor = destination;
-
+            let offset = destination.bits_used();
+            let slice = SliceData::from(cursor.clone());
             let mut next = self.dbg.pop().expect("dbg vector is not empty");
-            next.append_node(dbg);
+            // try to inline cursor into destination
+            if destination.references_free() >= cursor.references_used()
+                && destination.checked_append_references_and_data(&slice).is_ok() {
+                next.inline_node(offset, dbg);
+            // otherwise just attach cursor to destination as a reference
+            } else {
+                destination.append_reference(cursor);
+                next.append_node(dbg);
+            }
+            cursor = destination;
             dbg = next;
         }
         (cursor, dbg)

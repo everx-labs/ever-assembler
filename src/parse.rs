@@ -231,3 +231,15 @@ pub(super) fn parse_plduz_parameter(par: &str) -> Result<u8, ParameterError> {
             }
         })
 }
+
+pub(super) fn parse_string(arg: &str) -> Vec<u8> {
+    let mut string = String::from(arg);
+    if string.to_ascii_uppercase().starts_with('X') {
+        string.remove(0);
+        let res = hex::decode(string);
+        if res.is_ok() {
+            return res.unwrap()
+        }
+    }
+    Vec::from(arg)
+}
