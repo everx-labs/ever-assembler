@@ -359,7 +359,8 @@ fn compile_dumpstr<T: Writer>(
     pos: DbgPos,
 ) -> CompileResult {
     par.assert_len(1)?;
-    let string = par[0].as_bytes();
+    let string = parse_string(par[0]);
+    let string = string.as_slice();
     let len = string.len();
     if len > max_len {
         return Err(ParameterError::OutOfRange.parameter(par[0]))

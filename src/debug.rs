@@ -83,9 +83,11 @@ impl DbgNode {
         self.offsets.insert(offset, pos);
     }
     pub fn inline_node(self: &mut Self, offset: usize, dbg: DbgNode) {
-        assert!(dbg.children.is_empty());
         for entry in dbg.offsets {
             self.offsets.insert(entry.0 + offset, entry.1);
+        }
+        for child in dbg.children {
+            self.append_node(child);
         }
     }
     pub fn append_node(self: &mut Self, dbg: DbgNode) {
