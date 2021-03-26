@@ -121,8 +121,10 @@ impl DbgInfo {
     }
     fn collect(self: &mut Self, cell: &Cell, dbg: &DbgNode) {
         let hash = cell.repr_hash().to_hex_string();
-        let res = self.map.insert(hash, dbg.offsets.clone());
-        assert!(res.is_none());
+        // note existence of identical cells in a tree is normal
+        if !self.map.contains_key(&hash) {
+            self.map.insert(hash, dbg.offsets.clone());
+        }
         for i in 0..cell.references_count() {
             let child_cell = cell.reference(i).unwrap();
             let child_dbg = dbg.children[i].clone();
