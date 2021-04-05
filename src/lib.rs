@@ -299,7 +299,7 @@ impl<T: Writer> Engine<T> {
                 continue;
             } else if ch == '}' {
                 return Err(CompileError::syntax(y, x, ch))
-            } else if ch.is_ascii_alphanumeric() || (ch == '-') || (ch == '_') {
+            } else if ch.is_ascii_alphanumeric() || (ch == '-') || (ch == '_') || (ch == '.') {
                 acc = (s0, new_s1);
                 if s0 == s1 { //start of new token
                     was_comma = comma_found;
