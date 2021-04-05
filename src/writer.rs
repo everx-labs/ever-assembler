@@ -19,6 +19,7 @@ use crate::debug::{DbgNode, DbgPos};
 pub trait Writer : 'static {
     fn new() -> Self;
     fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError>;
+    fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError>;
     fn write_composite_command(&mut self, code: &[u8], reference: BuilderData, pos: DbgPos, dbg: DbgNode) -> Result<(), OperationError>;
     fn finalize(self) -> (BuilderData, DbgNode);
 }
@@ -38,15 +39,18 @@ impl Writer for CodePage0 {
     }
     /// writes simple command
     fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError> {
+        self.write_command_bitstring(command, command.len() * 8, dbg)
+    }
+    fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError> {
         if !self.cells.is_empty() {
             let offset = self.cells.last().unwrap().bits_used();
-            if self.cells.last_mut().unwrap().append_raw(command, command.len() * 8).is_ok() {
+            if self.cells.last_mut().unwrap().append_raw(command, bits).is_ok() {
                 self.dbg.last_mut().unwrap().inline_node(offset, dbg);
                 return Ok(());
             }
         }
         let mut code = BuilderData::new();
-        if code.append_raw(command, command.len() * 8).is_ok() {
+        if code.append_raw(command, bits).is_ok() {
             self.cells.push(code);
             self.dbg.push(dbg);
             return Ok(());

@@ -555,6 +555,33 @@ fn compile_throwifnot<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, desti
     compile_throw_helper(par, 0x80, 0xE0, destination, pos)
 }
 
+fn compile_blob<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos)
+-> CompileResult {
+    let data = par[0];
+    if !data.to_ascii_lowercase().starts_with('x') {
+        return Err(ParameterError::UnexpectedType.parameter("parameter"))
+    }
+    let res = SliceData::from_string(&data[1..]);
+    if res.is_err() {
+        return Err(ParameterError::UnexpectedType.parameter("parameter"))
+    }
+    let slice = res.unwrap();
+    destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))
+}
+
+fn compile_cell<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos)
+-> CompileResult {
+    if engine.line_no == 0 && engine.char_no == 0 {
+        return Err(OperationError::MissingBlock)
+    }
+    par.assert_len(1)?;
+    let (cont, dbg) = engine
+        .compile(par[0])
+        .map_err(|e| OperationError::Nested(Box::new(e)))?
+        .finalize();
+    destination.write_composite_command(&[], cont, pos, dbg)
+}
+
 // Compilation engine *********************************************************
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -661,5 +688,7 @@ impl<T: Writer> Engine<T> {
         self.COMPILE_ROOT.insert("THROWIFNOT",     compile_throwifnot);
         self.COMPILE_ROOT.insert("XCHG",           compile_xchg);
         // Add automatic commands
+        self.COMPILE_ROOT.insert(".BLOB",          compile_blob);
+        self.COMPILE_ROOT.insert(".CELL",          compile_cell);
     }
 }
