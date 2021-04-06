@@ -479,7 +479,6 @@ impl<T: Writer> Engine<T> {
             s1 = parse_const_u8_plus_one     => 0x83, s1
         PUSHPOW2DEC
             s1 = parse_const_u8_plus_one     => 0x84, s1
-        PUSHREF                              => 0x88
         PUSHREFSLICE                         => 0x89
         PUSHROOT                             => 0xED, 0x44
         PUXC   
