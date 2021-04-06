@@ -135,6 +135,10 @@ fn compile_ifelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destina
     return compile_ref(engine, par, destination, &[0xE3, 0x0E], pos);
 }
 
+fn compile_pushref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
+    return compile_ref(engine, par, destination, &[0x88], pos);
+}
+
 fn compile_pushrefcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
     return compile_ref(engine, par, destination, &[0x8A], pos);
 }
@@ -641,6 +645,7 @@ impl<T: Writer> Engine<T> {
         self.COMPILE_ROOT.insert("PUSH",           compile_push);
         self.COMPILE_ROOT.insert("PUSHCONT",       compile_pushcont);
         self.COMPILE_ROOT.insert("PUSHINT",        compile_pushint);
+        self.COMPILE_ROOT.insert("PUSHREF",        compile_pushref);
         self.COMPILE_ROOT.insert("PUSHREFCONT",    compile_pushrefcont);
         self.COMPILE_ROOT.insert("PUSHSLICE",      compile_pushslice);
         self.COMPILE_ROOT.insert("SETCONTARGS",    compile_setcontargs);
