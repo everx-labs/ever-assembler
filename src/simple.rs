@@ -313,7 +313,6 @@ impl<T: Writer> Engine<T> {
         JMPXARGS p = parse_const_u4          => 0xDB, 0x10 | p
         JMPXDATA                             => 0xDB, 0x35
         JMPXVARARGS                          => 0xDB, 0x3A
-        JMPREF                               => 0xDB, 0x3D
         JMPREFDATA                           => 0xDB, 0x3E
         HEXDUMP                              => 0xFE, 0x10
         HEXPRINT                             => 0xFE, 0x11
@@ -378,6 +377,7 @@ impl<T: Writer> Engine<T> {
         MULMODC                              => 0xA9, 0x8A
         MULMODR                              => 0xA9, 0x89
         MYADDR                               => 0xF8, 0x28
+        MYCODE                               => 0xF8, 0x2A
         NEGATE                               => 0xA3
         NEQ                                  => 0xBD
         NEQINT z = parse_const_i8            => 0xC3, z
@@ -479,7 +479,6 @@ impl<T: Writer> Engine<T> {
             s1 = parse_const_u8_plus_one     => 0x83, s1
         PUSHPOW2DEC
             s1 = parse_const_u8_plus_one     => 0x84, s1
-        PUSHREFSLICE                         => 0x89
         PUSHROOT                             => 0xED, 0x44
         PUXC   
             s1 = parse_stack_register_u4;
