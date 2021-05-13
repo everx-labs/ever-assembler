@@ -354,6 +354,7 @@ impl<T: Writer> Engine<T> {
         LDVARUINT16                          => 0xFA, 0x00
         LDVARUINT32                          => 0xFA, 0x04
         LDZEROES                             => 0xD7, 0x60
+        LDCONT                               => 0xD7, 0x66
         LEQ                                  => 0xBB
         LESS                                 => 0xB9
         LESSINT z = parse_const_i8           => 0xC1, z
@@ -720,6 +721,7 @@ impl<T: Writer> Engine<T> {
         STVARUINT32                          => 0xFA, 0x06
         STZERO                               => 0xCF, 0x81
         STZEROES                             => 0xCF, 0x40
+        STCONT                               => 0xCF, 0x43
         SUB                                  => 0xA1
         SUBDICTGET                           => 0xF4, 0xB1
         SUBDICTIGET                          => 0xF4, 0xB2
