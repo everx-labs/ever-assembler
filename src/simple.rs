@@ -300,6 +300,7 @@ impl<T: Writer> Engine<T> {
         INDEX3 i = parse_const_u2;
                j = parse_const_u2;
                k = parse_const_u2            => 0x6F, 0xC0 | (i << 4) | (j << 2) | k
+        INITCODEHASH                         => 0xF8, 0x2B
         ISNAN                                => 0xC4
         ISNEG                                => 0xC1, 0x00
         ISNPOS                               => 0xC1, 0x01
@@ -313,7 +314,6 @@ impl<T: Writer> Engine<T> {
         JMPXARGS p = parse_const_u4          => 0xDB, 0x10 | p
         JMPXDATA                             => 0xDB, 0x35
         JMPXVARARGS                          => 0xDB, 0x3A
-        JMPREF                               => 0xDB, 0x3D
         JMPREFDATA                           => 0xDB, 0x3E
         HEXDUMP                              => 0xFE, 0x10
         HEXPRINT                             => 0xFE, 0x11
@@ -355,6 +355,7 @@ impl<T: Writer> Engine<T> {
         LDVARUINT16                          => 0xFA, 0x00
         LDVARUINT32                          => 0xFA, 0x04
         LDZEROES                             => 0xD7, 0x60
+        LDCONT                               => 0xD7, 0x66
         LEQ                                  => 0xBB
         LESS                                 => 0xB9
         LESSINT z = parse_const_i8           => 0xC1, z
@@ -378,6 +379,7 @@ impl<T: Writer> Engine<T> {
         MULMODC                              => 0xA9, 0x8A
         MULMODR                              => 0xA9, 0x89
         MYADDR                               => 0xF8, 0x28
+        MYCODE                               => 0xF8, 0x2A
         NEGATE                               => 0xA3
         NEQ                                  => 0xBD
         NEQINT z = parse_const_i8            => 0xC3, z
@@ -479,7 +481,6 @@ impl<T: Writer> Engine<T> {
             s1 = parse_const_u8_plus_one     => 0x83, s1
         PUSHPOW2DEC
             s1 = parse_const_u8_plus_one     => 0x84, s1
-        PUSHREFSLICE                         => 0x89
         PUSHROOT                             => 0xED, 0x44
         PUXC   
             s1 = parse_stack_register_u4;
@@ -721,6 +722,7 @@ impl<T: Writer> Engine<T> {
         STVARUINT32                          => 0xFA, 0x06
         STZERO                               => 0xCF, 0x81
         STZEROES                             => 0xCF, 0x40
+        STCONT                               => 0xCF, 0x43
         SUB                                  => 0xA1
         SUBDICTGET                           => 0xF4, 0xB1
         SUBDICTIGET                          => 0xF4, 0xB2
@@ -805,6 +807,14 @@ impl<T: Writer> Engine<T> {
         XLOADQ                               => 0xD7, 0x3B
         XOR                                  => 0xB2
         ZERO                                 => 0x70
+        ZEROROTRIF                           => 0x6F, 0xA2
+        ZEROROTRIF2                          => 0x6F, 0xA6
+        ZEROROTRIFNOT                        => 0x6F, 0xA3
+        ZEROROTRIFNOT2                       => 0x6F, 0xA7
+        ZEROSWAPIF                           => 0x6F, 0xA0
+        ZEROSWAPIF2                          => 0x6F, 0xA4
+        ZEROSWAPIFNOT                        => 0x6F, 0xA1
+        ZEROSWAPIFNOT2                       => 0x6F, 0xA5
     }
 
     pub fn add_simple_commands(&mut self) {
