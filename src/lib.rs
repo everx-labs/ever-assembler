@@ -382,7 +382,7 @@ pub fn compile_code(code: &str) -> Result<SliceData, CompileError> {
 
 pub fn compile_code_to_cell(code: &str) -> Result<Cell, CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
-    Engine::<CodePage0>::new(vec![]).compile(code).map(|code| code.finalize().0.into())
+    Engine::<CodePage0>::new(vec![]).compile(code).map(|code| code.finalize().0.into_cell().map_err(|_| CompileError::unknown(0, 0, "failure while convert BuilderData to cell")))?
 }
 
 pub fn compile_code_to_builder(code: &str) -> Result<BuilderData, CompileError> {
@@ -394,7 +394,7 @@ pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), Comp
     log::trace!(target: "tvm", "begin compile\n");
     let source = lines_to_string(&code);
     let (builder, dbg) = Engine::<CodePage0>::new(code).compile(source.as_str()).map(|code| code.finalize())?;
-    let cell = builder.into();
+    let cell = builder.into_cell().map_err(|_| CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))?;
     let dbg_info = DbgInfo::from(&cell, &dbg);
     Ok((cell.into(), dbg_info))
 }
