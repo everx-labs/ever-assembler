@@ -1,5 +1,5 @@
 /*
-* Copyright 2021 TON DEV SOLUTIONS LTD.
+* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -97,7 +97,7 @@ impl DbgNode {
         }
     }
     pub fn append_node(self: &mut Self, dbg: DbgNode) {
-        assert!(self.children.len() <= 4);
+        assert!(self.children.len() < 4);
         self.children.push(dbg)
     }
 }

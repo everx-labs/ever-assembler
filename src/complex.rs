@@ -1,5 +1,5 @@
 /*
-* Copyright 2018-2020 TON DEV SOLUTIONS LTD.
+* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -104,7 +104,7 @@ fn compile_ref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: 
         .compile(par[0])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    destination.write_composite_command(command, cont, pos, dbg)
+    destination.write_composite_command(command, vec!(cont), pos, vec!(dbg))
 }
 
 fn compile_callref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
@@ -139,6 +139,23 @@ fn compile_ifelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destina
     return compile_ref(engine, par, destination, &[0xE3, 0x0E], pos);
 }
 
+fn compile_ifrefelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
+    if engine.line_no == 0 && engine.char_no == 0 {
+        // the case of instruction form without an argument
+        return destination.write_command(&[0xE3, 0x0F], DbgNode::from(pos));
+    }
+    par.assert_len(2)?;
+    let (cont1, dbg1) = engine
+        .compile(par[0])
+        .map_err(|e| OperationError::Nested(Box::new(e)))?
+        .finalize();
+    let (cont2, dbg2) = engine
+        .compile(par[1])
+        .map_err(|e| OperationError::Nested(Box::new(e)))?
+        .finalize();
+    destination.write_composite_command(&[0xE3, 0x0F], vec!(cont1, cont2), pos, vec!(dbg1, dbg2))
+}
+
 fn compile_pushref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
     return compile_ref(engine, par, destination, &[0x88], pos);
 }
@@ -171,7 +188,7 @@ fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destinat
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
     if cont.references_used() > 0 {
-        destination.write_composite_command(&[0x8E, 0x80], cont, pos, dbg)
+        destination.write_composite_command(&[0x8E, 0x80], vec!(cont), pos, vec!(dbg))
     } else {
         let n = cont.data().len();
         if n <= 15 {
@@ -187,10 +204,10 @@ fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destinat
             command.extend_from_slice(cont.data());
             destination.write_command(command.as_slice(), dbg2)
         } else if n <= 127 {
-            //We cannot put command and code in one cell, because it will 
+            //We cannot put command and code in one cell, because it will
             //be more than 1023 bits: 127 bytes (pushcont data) + 2 bytes(opcode).
             //Write as r = 1 and xx = 0x00.
-            destination.write_composite_command(&[0x8E, 0x80], cont, pos, dbg)
+            destination.write_composite_command(&[0x8E, 0x80], vec!(cont), pos, vec!(dbg))
         } else {
             log::error!(target: "compile", "Maybe cell longer than 1024 bit?");
             Err(OperationError::NotFitInSlice)
@@ -342,7 +359,7 @@ fn compile_pushint<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destinat
             Err(ParameterError::OutOfRange.parameter("arg 0"))
         }
     }?.as_slice(), DbgNode::from(pos))
-} 
+}
 
 fn compile_bchkbits<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
     destination.write_command({
@@ -594,7 +611,7 @@ fn compile_cell<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination:
         .compile(par[0])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    destination.write_composite_command(&[], cont, pos, dbg)
+    destination.write_composite_command(&[], vec!(cont), pos, vec!(dbg))
 }
 
 // Compilation engine *********************************************************
@@ -627,6 +644,7 @@ impl<T: Writer> Engine<T> {
         self.COMPILE_ROOT.insert("IFNOTJMPREF",    compile_ifnotjmpref);
         self.COMPILE_ROOT.insert("IFREFELSE",      compile_ifrefelse);
         self.COMPILE_ROOT.insert("IFELSEREF",      compile_ifelseref);
+        self.COMPILE_ROOT.insert("IFREFELSEREF",   compile_ifrefelseref);
         self.COMPILE_ROOT.insert("JMPDICT",        Engine::JMP);
         self.COMPILE_ROOT.insert("JMPREF",         compile_jmpref);
         self.COMPILE_ROOT.insert("LOGSTR",         compile_logstr);

@@ -1,5 +1,5 @@
 /*
-* Copyright 2018-2020 TON DEV SOLUTIONS LTD.
+* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -20,7 +20,7 @@ pub trait Writer : 'static {
     fn new() -> Self;
     fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError>;
     fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError>;
-    fn write_composite_command(&mut self, code: &[u8], reference: BuilderData, pos: DbgPos, dbg: DbgNode) -> Result<(), OperationError>;
+    fn write_composite_command(&mut self, code: &[u8], references: Vec<BuilderData>, pos: DbgPos, dbgs: Vec<DbgNode>) -> Result<(), OperationError>;
     fn finalize(self) -> (BuilderData, DbgNode);
 }
 
@@ -59,36 +59,39 @@ impl Writer for CodePage0 {
     }
     /// writes command with additional reference
     fn write_composite_command(
-        &mut self, 
-        command: &[u8], 
-        reference: BuilderData,
-        pos: DbgPos, 
-        dbg: DbgNode,
+        &mut self,
+        command: &[u8],
+        references: Vec<BuilderData>,
+        pos: DbgPos,
+        dbgs: Vec<DbgNode>,
     ) -> Result<(), OperationError> {
+        assert_eq!(references.len(), dbgs.len());
         if !self.cells.is_empty() {
             let mut last = self.cells.last().unwrap().clone();
             let offset = last.bits_used();
-            if last.references_free() > 1 // one cell remains reserved for finalization
+            if last.references_free() > references.len() // one cell remains reserved for finalization
                 && last.append_raw(command, command.len() * 8).is_ok()
-                && last.checked_append_reference(reference.clone().into_cell().map_err(|_| OperationError::NotFitInSlice)?).is_ok() {
+                && checked_append_references(&mut last, &references)? {
 
                 *self.cells.last_mut().unwrap() = last;
 
                 let node = self.dbg.last_mut().unwrap();
-                node.append(offset, pos);
-                node.append_node(dbg);
+                node.append(offset, pos.clone());
+                for dbg in dbgs {
+                    node.append_node(dbg);
+                }
                 return Ok(());
             }
         }
         let mut code = BuilderData::new();
-        let cell = reference.into_cell().map_err(|_| OperationError::NotFitInSlice)?;
         if code.append_raw(command, command.len() * 8).is_ok()
-            && code.checked_append_reference(cell).is_ok() {
+            && checked_append_references(&mut code, &references)? {
             self.cells.push(code);
 
-            let mut node = DbgNode::new();
-            node.append(0, pos);
-            node.append_node(dbg);
+            let mut node = DbgNode::from(pos);
+            for dbg in dbgs {
+                node.append_node(dbg);
+            }
             self.dbg.push(node);
 
             return Ok(());
@@ -119,4 +122,13 @@ impl Writer for CodePage0 {
         }
         (cursor, dbg)
     }
+}
+
+fn checked_append_references(builder: &mut BuilderData, refs: &Vec<BuilderData>) -> Result<bool, OperationError> {
+    for reference in refs {
+        if builder.checked_append_reference(reference.clone().into_cell().map_err(|_| OperationError::NotFitInSlice)?).is_err() {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }

@@ -1,5 +1,5 @@
 /*
-* Copyright 2018-2020 TON DEV SOLUTIONS LTD.
+* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -290,7 +290,6 @@ impl<T: Writer> Engine<T> {
         INC                                  => 0xA4
         INTSORT2                             => 0xB6, 0x0A
         INVERT                               => 0xED, 0xF8
-        IFREFELSEREF                         => 0xE3, 0x0F
         INDEX c = parse_const_u4             => 0x6F, 0x10 | c
         INDEXQ c = parse_const_u4            => 0x6F, 0x60 | c
         INDEXVAR                             => 0x6F, 0x81
@@ -338,8 +337,8 @@ impl<T: Writer> Engine<T> {
         LDREFRTOS                            => 0xD5
         LDSAME                               => 0xD7, 0x62
         LDSLICE cc = parse_const_u8_plus_one => 0xD6, cc
-        LDSLICEQ 
-            cc = parse_const_u8_plus_one     => 0xD7, 0x1E, cc 
+        LDSLICEQ
+            cc = parse_const_u8_plus_one     => 0xD7, 0x1E, cc
         LDSLICEX                             => 0xD7, 0x18
         LDSLICEXQ                            => 0xD7, 0x1A
         LDU z = parse_const_u8_plus_one      => 0xD3, z
@@ -429,9 +428,9 @@ impl<T: Writer> Engine<T> {
         PLDIQ cc = parse_const_u8_plus_one   => 0xD7, 0x0E, cc
         PLDIX                                => 0xD7, 0x02
         PLDIXQ                               => 0xD7, 0x06
-        PLDSLICE 
+        PLDSLICE
             cc = parse_const_u8_plus_one     => 0xD7, 0x1D, cc
-        PLDSLICEQ 
+        PLDSLICEQ
             cc = parse_const_u8_plus_one     => 0xD7, 0x1F, cc
         PLDOPTREF                            => 0xF4, 0x05
         PLDREF                               => 0xD7, 0x4C
@@ -459,39 +458,39 @@ impl<T: Writer> Engine<T> {
         PREPARE n = parse_const_u14          => 0xF1, 0x80 | ((n / 256) as u8), ((n % 256) as u8)
         PREPAREDICT n = parse_const_u14      => 0xF1, 0x80 | ((n / 256) as u8), ((n % 256) as u8)
         PRINT z = parse_const_u4_14          => 0xFE, 0x30 | z
-        PU2XC  
+        PU2XC
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4_minus_one;
-            s3 = parse_stack_register_u4_minus_two 
+            s3 = parse_stack_register_u4_minus_two
                                              => 0x54, 0x60 | s1, (s2 << 4) | s3
-        PUSH2  
+        PUSH2
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4     => 0x53, (s1 << 4) | s2
-        PUSH3  
+        PUSH3
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4;
             s3 = parse_stack_register_u4     => 0x54, 0x70 | s1, (s2 << 4) | s3
         PUSHCTR z = parse_control_register   => 0xED, 0x40 | z
         PUSHCTRX                             => 0xED, 0xE0
         PUSHNAN                              => 0x83, 0xFF
-        PUSHNEGPOW2 
+        PUSHNEGPOW2
             s1 = parse_const_u8_plus_one     => 0x85, s1
         PUSHNULL                             => 0x6D
-        PUSHPOW2 
+        PUSHPOW2
             s1 = parse_const_u8_plus_one     => 0x83, s1
         PUSHPOW2DEC
             s1 = parse_const_u8_plus_one     => 0x84, s1
         PUSHROOT                             => 0xED, 0x44
-        PUXC   
+        PUXC
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4_minus_one
                                              => 0x52, (s1 << 4) | s2
-        PUXC2  
+        PUXC2
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4_minus_one;
             s3 = parse_stack_register_u4_minus_one
                                              => 0x54, 0x40 | s1, (s2 << 4) | s3
-        PUXCPU 
+        PUXCPU
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4_minus_one;
             s3 = parse_stack_register_u4_minus_one
@@ -777,26 +776,26 @@ impl<T: Writer> Engine<T> {
         WHILEBRK                             => 0xE3, 0x18
         WHILEEND                             => 0xE9
         WHILEENDBRK                          => 0xE3, 0x19
-        XC2PU 
+        XC2PU
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4;
-            s3 = parse_stack_register_u4     => 0x54, 0x10 | s1, (s2 << 4) | s3 
-        XCHG2 
+            s3 = parse_stack_register_u4     => 0x54, 0x10 | s1, (s2 << 4) | s3
+        XCHG2
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4     => 0x50, (s1 << 4) | s2
-        XCHG3 
+        XCHG3
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4;
             s3 = parse_stack_register_u4     => 0x40 | s1, (s2 << 4) | s3
         XCHGX                                => 0x67
-        XCPU  
+        XCPU
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4     => 0x51, (s1 << 4) | s2
-        XCPU2 
+        XCPU2
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4;
             s3 = parse_stack_register_u4     => 0x54, 0x30 | s1, (s2 << 4) | s3
-        XCPUXC 
+        XCPUXC
             s1 = parse_stack_register_u4;
             s2 = parse_stack_register_u4;
             s3 = parse_stack_register_u4_minus_one

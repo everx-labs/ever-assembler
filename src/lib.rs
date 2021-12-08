@@ -1,5 +1,5 @@
 /*
-* Copyright 2018-2020 TON DEV SOLUTIONS LTD.
+* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -18,7 +18,7 @@ pub use debug::{Line, Lines, DbgInfo, lines_to_string};
 
 mod errors;
 pub use errors::{
-    CompileError, OperationError, ParameterError, Position, 
+    CompileError, OperationError, ParameterError, Position,
     ToOperationParameterError,
 };
 
@@ -67,7 +67,7 @@ impl<T> EnsureParametersCountInRange for Vec<T>{
 
 // Command compilation context ************************************************
 
-struct CommandContext<T> 
+struct CommandContext<T>
 where
     T: Writer
 {
@@ -90,8 +90,8 @@ impl<T: Writer> Default for CommandContext<T> {
             rule_option: None,
         }
     }
-    
 }
+
 impl<T: Writer> CommandContext<T> {
     fn new(operation: String, char_no_cmd: usize, line_no_cmd: usize, rule_option: Option<CompileHandler<T>>) -> Self {
         Self {
@@ -145,8 +145,8 @@ impl<T: Writer> CommandContext<T> {
         }
         engine.set_pos(line_no, char_no);
         self.rule_option = None;
-        // detecting some errors here if was
-        if n > 1 {
+        // detecting some errors here
+        if n > 1 && self.operation != "IFREFELSEREF" { // the only insn taking two blocks without comma between
             for (line, column, _, was_comma) in &par[1..n] {
                 if !*was_comma {
                     if let Some(line) = engine.lines.get(*line - 1) {
@@ -296,7 +296,9 @@ impl<T: Writer> Engine<T> {
             } else if ch == ';' {
                 acc = (new_s1, new_s1);
                 in_comment = true;
-                continue;
+                if s0 == s1 {
+                    continue;
+                }
             } else if ch == ',' {
                 if !expect_comma {
                     if let Some(line) = self.lines.get(y - 1) {
@@ -313,7 +315,7 @@ impl<T: Writer> Engine<T> {
                     continue;
                 }
             } else if ch == '{' {
-                if expect_comma || !command_ctx.has_command() || !par.is_empty() {
+                if expect_comma || !command_ctx.has_command() {
                     if let Some(line) = self.lines.get(y - 1) {
                         let pos = &line.pos;
                         return Err(CompileError::syntax(pos.line_code, x, ch).with_filename(pos.filename.clone()))
