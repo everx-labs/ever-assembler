@@ -393,6 +393,14 @@ impl<T: Writer> Engine<T> {
         }
         // Compile last pending command if any
         command_ctx.compile(&mut ret, &mut par, self)?;
+        if in_block != 0 {
+            if let Some(line) = self.lines.get(self.line_no - 1) {
+                let pos = &line.pos;
+                return Err(CompileError::syntax(pos.line_code, 0, "Missing }").with_filename(pos.filename.clone()))
+            } else {
+                return Err(CompileError::syntax(self.line_no, 0, "Missing }"))
+            }
+        }
         Ok(ret)
     }
 
