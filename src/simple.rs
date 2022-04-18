@@ -633,6 +633,7 @@ impl<T: Writer> Engine<T> {
         SENDRAWMSG                           => 0xFB, 0x00
         SETALTCTR z = parse_control_register => 0xED, 0x80 | z
         SETCODE                              => 0xFB, 0x04
+        COPYLEFT                             => 0xFB, 0x0A
         SETCONT z = parse_control_register   => 0xED, 0x60 | z
         SETCONTCTR z=parse_control_register  => 0xED, 0x60 | z
         SETCONTCTRX                          => 0xED, 0xE2
