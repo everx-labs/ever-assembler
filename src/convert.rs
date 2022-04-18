@@ -24,7 +24,7 @@ fn bitsize(value: &BigInt) -> usize {
     if (value == &0.into()) || (value == &(-1).into()) {
         return 1
     }
-    let res = value.bits();
+    let res = value.bits() as usize;
     if value.sign() == Sign::Plus {
         return res + 1
     }
