@@ -110,6 +110,7 @@ impl<T: Writer> Engine<T> {
         CONFIGPARAM                          => 0xF8, 0x32
         CONFIGOPTPARAM                       => 0xF8, 0x33
         CONS                                 => 0x6F, 0x02
+        COPYLEFT                             => 0xFB, 0x0A
         CTOS                                 => 0xD0
         DEC                                  => 0xA5
         DEBUG z = parse_const_u8_240         => 0xFE, z
@@ -237,6 +238,8 @@ impl<T: Writer> Engine<T> {
         DICTUSETGETB                         => 0xF4, 0x47
         DICTUSETGETREF                       => 0xF4, 0x1F
         DICTUSETREF                          => 0xF4, 0x17
+        DIFF                                 => 0xC7, 0x14
+        DIFF_PATCH                           => 0xC7, 0x15
         DIV                                  => 0xA9, 0x04
         DIVC                                 => 0xA9, 0x06
         DIVR                                 => 0xA9, 0x05
@@ -261,6 +264,9 @@ impl<T: Writer> Engine<T> {
         EXPLODE c = parse_const_u4           => 0x6F, 0x40 | c
         EXPLODEVAR                           => 0x6F, 0x84
         FALSE                                => 0x70
+        FIND_BY_INIT_CODE_HASH               => 0xF9, 0x44
+        FIND_BY_CODE_HASH                    => 0xF9, 0x45
+        FIND_BY_DATA_HASH                    => 0xF9, 0x46
         FIRST                                => 0x6F, 0x10
         FITS z = parse_const_u8_plus_one     => 0xB4, z
         FITSX                                => 0xB6, 0x00
@@ -631,9 +637,9 @@ impl<T: Writer> Engine<T> {
         SECOND                               => 0x6F, 0x11
         SEMPTY                               => 0xC7, 0x00
         SENDRAWMSG                           => 0xFB, 0x00
+        SEQNO                                => 0xF8, 0x2D
         SETALTCTR z = parse_control_register => 0xED, 0x80 | z
         SETCODE                              => 0xFB, 0x04
-        COPYLEFT                             => 0xFB, 0x0A
         SETCONT z = parse_control_register   => 0xED, 0x60 | z
         SETCONTCTR z=parse_control_register  => 0xED, 0x60 | z
         SETCONTCTRX                          => 0xED, 0xE2
@@ -692,6 +698,7 @@ impl<T: Writer> Engine<T> {
         STONE                                => 0xCF, 0x83
         STONES                               => 0xCF, 0x41
         STOPTREF                             => 0xF4, 0x00
+        STORAGEFEE                           => 0xF8, 0x2C
         STRDUMP                              => 0xFE, 0x14
         STRPRINT                             => 0xFE, 0x15
         STREF                                => 0xCC
@@ -754,6 +761,7 @@ impl<T: Writer> Engine<T> {
         TRY                                  => 0xF2, 0xFF
         TRYARGS s1 = parse_const_u4;
                 s2 = parse_const_u4          => 0xF3, (s1 << 4 | s2)
+        TRYELECT                             => 0xF9, 0x50
         TUCK                                 => 0x66
         TUPLE s = parse_const_u4             => 0x6F, s
         TUPLEVAR                             => 0x6F, 0x80
