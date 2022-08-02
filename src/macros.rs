@@ -61,11 +61,11 @@ macro_rules! simple_commands {
     };
 
     // parse whole block of simple commands
-    ($($command: ident $($pname:ident = $parser:ident);* => $($code:expr),+ )*) => {
+    ($enumerate_commands:ident $($command: ident $($pname:ident = $parser:ident);* => $($code:expr),+ )*) => {
         $(
             simple_commands!(@resolve $command $($pname = $parser);* => $($code),*);
         )*
-        pub fn enumerate_simple_commands() -> &'static [(&'static str, CompileHandler<T>)] {
+        pub fn $enumerate_commands() -> &'static [(&'static str, CompileHandler<T>)] {
             &[
                 $( (stringify!($command), Engine::<T>::$command), )*
             ]

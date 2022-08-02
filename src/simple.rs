@@ -28,6 +28,7 @@ impl<T: Writer> Engine<T> {
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
     simple_commands! {
+        enumerate_simple_commands
         ABS                                  => 0xB6, 0x0B
         ACCEPT                               => 0xF8, 0x00
         ADD                                  => 0xA0
@@ -238,12 +239,6 @@ impl<T: Writer> Engine<T> {
         DICTUSETGETB                         => 0xF4, 0x47
         DICTUSETGETREF                       => 0xF4, 0x1F
         DICTUSETREF                          => 0xF4, 0x17
-        DIFF                                 => 0xC7, 0x14
-        DIFF_PATCH                           => 0xC7, 0x15
-        DIFF_PATCH_ZIP                       => 0xC7, 0x19
-        DIFF_PATCHQ                          => 0xC7, 0x20
-        DIFF_PATCH_ZIPQ                      => 0xC7, 0x21
-        DIFF_ZIP                             => 0xC7, 0x18
         DIV                                  => 0xA9, 0x04
         DIVC                                 => 0xA9, 0x06
         DIVR                                 => 0xA9, 0x05
@@ -785,7 +780,6 @@ impl<T: Writer> Engine<T> {
         UNTRIPLE                             => 0x6F, 0x23
         UNTUPLE c = parse_const_u4           => 0x6F, 0x20 | c
         UNTUPLEVAR                           => 0x6F, 0x82
-        UNZIP                                => 0xC7, 0x17
         WHILE                                => 0xE8
         WHILEBRK                             => 0xE3, 0x18
         WHILEEND                             => 0xE9
@@ -827,8 +821,8 @@ impl<T: Writer> Engine<T> {
         ZEROSWAPIF2                          => 0x6F, 0x94
         ZEROSWAPIFNOT                        => 0x6F, 0x91
         ZEROSWAPIFNOT2                       => 0x6F, 0x95
-        ZIP                                  => 0xC7, 0x16
     }
+
 
     pub fn add_simple_commands(&mut self) {
         // Add automatic commands
@@ -837,5 +831,6 @@ impl<T: Writer> Engine<T> {
                 panic!("Token {} was already registered.", command);
             }
         }
+
     }
 }
