@@ -823,6 +823,18 @@ impl<T: Writer> Engine<T> {
         ZEROSWAPIFNOT2                       => 0x6F, 0x95
     }
 
+    #[cfg(feature = "gosh")]
+    simple_commands! {
+        enumerate_diff_commands
+        DIFF                                 => 0xC7, 0x14
+        DIFF_PATCH                           => 0xC7, 0x15
+        DIFF_PATCH_ZIP                       => 0xC7, 0x19
+        DIFF_PATCHQ                          => 0xC7, 0x20
+        DIFF_PATCH_ZIPQ                      => 0xC7, 0x21
+        DIFF_ZIP                             => 0xC7, 0x18
+        UNZIP                                => 0xC7, 0x17
+        ZIP                                  => 0xC7, 0x16
+    }
 
     pub fn add_simple_commands(&mut self) {
         // Add automatic commands
@@ -832,5 +844,11 @@ impl<T: Writer> Engine<T> {
             }
         }
 
+        #[cfg(feature = "gosh")]
+        for (command, handler) in Self::enumerate_diff_commands() {
+            if self.COMPILE_ROOT.insert(command, *handler).is_some() {
+                panic!("Token {} was already registered.", command);
+            }
+        }
     }
 }
