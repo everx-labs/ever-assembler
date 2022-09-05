@@ -834,6 +834,10 @@ impl<T: Writer> Engine<T> {
         DIFF_ZIP                             => 0xC7, 0x18
         UNZIP                                => 0xC7, 0x17
         ZIP                                  => 0xC7, 0x16
+        DIFF_PATCH_BINARY                    => 0xC7, 0x22
+        DIFF_PATCH_BINARY_ZIP                => 0xC7, 0x23
+        DIFF_PATCH_BINARYQ                   => 0xC7, 0x24
+        DIFF_PATCH_BINARY_ZIPQ               => 0xC7, 0x25
     }
 
     pub fn add_simple_commands(&mut self) {
