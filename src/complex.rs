@@ -12,7 +12,7 @@
 */
 
 use std::{marker::PhantomData, ops::Range};
-use ton_types::SliceData;
+use ton_types::{SliceData, BuilderData};
 
 use super::errors::{
     OperationError, ParameterError,
@@ -104,39 +104,40 @@ fn compile_ref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: 
         .compile(par[0])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    destination.write_composite_command(command, vec!(cont), pos, vec!(dbg))
+    let dbg2 = DbgNode::from_ext(pos, vec!(dbg));
+    destination.write_composite_command(command, vec!(cont), dbg2)
 }
 
 fn compile_callref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xDB, 0x3C], pos);
+    compile_ref(engine, par, destination, &[0xDB, 0x3C], pos)
 }
 
 fn compile_jmpref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xDB, 0x3D], pos);
+    compile_ref(engine, par, destination, &[0xDB, 0x3D], pos)
 }
 
 fn compile_ifref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x00], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x00], pos)
 }
 
 fn compile_ifnotref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x01], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x01], pos)
 }
 
 fn compile_ifjmpref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x02], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x02], pos)
 }
 
 fn compile_ifnotjmpref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x03], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x03], pos)
 }
 
 fn compile_ifrefelse<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x0D], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x0D], pos)
 }
 
 fn compile_ifelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0xE3, 0x0E], pos);
+    compile_ref(engine, par, destination, &[0xE3, 0x0E], pos)
 }
 
 fn compile_ifrefelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
@@ -153,19 +154,20 @@ fn compile_ifrefelseref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, dest
         .compile(par[1])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    destination.write_composite_command(&[0xE3, 0x0F], vec!(cont1, cont2), pos, vec!(dbg1, dbg2))
+    let dbg = DbgNode::from_ext(pos, vec!(dbg1, dbg2));
+    destination.write_composite_command(&[0xE3, 0x0F], vec!(cont1, cont2), dbg)
 }
 
 fn compile_pushref<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0x88], pos);
+    compile_ref(engine, par, destination, &[0x88], pos)
 }
 
 fn compile_pushrefslice<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0x89], pos);
+    compile_ref(engine, par, destination, &[0x89], pos)
 }
 
 fn compile_pushrefcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
-    return compile_ref(engine, par, destination, &[0x8A], pos);
+    compile_ref(engine, par, destination, &[0x8A], pos)
 }
 
 fn compile_pop<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
@@ -178,6 +180,25 @@ fn compile_push<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination
     compile_with_any_register(par[0],  &[0x20], &[0x56, 0x00], &[0xED, 0x40], destination, pos)
 }
 
+fn write_pushcont<T: Writer>(cont: BuilderData, dbg: DbgNode, destination: &mut T, pos: DbgPos) -> CompileResult {
+    let r = cont.references_used() as u8;
+    if r > 3 {
+        return Err(OperationError::NotFitInSlice)
+    }
+    let x = cont.data().len() as u8;
+    if x > 127 - 2 {
+        return Err(OperationError::NotFitInSlice)
+    }
+    // 1000111r rxxxxxxx ccc...
+    let mut code = vec!(0x8e | (r & 2) >> 1, (r & 1) << 7 | x);
+    let mut dbg2 = DbgNode::from(pos);
+    dbg2.inline_node(code.len() * 8, dbg);
+    code.extend_from_slice(cont.data());
+    let refs = cont.references().iter().map(|cell| cell.into()).collect();
+
+    destination.write_composite_command(&code, refs, dbg2)
+}
+
 fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         return Err(OperationError::MissingBlock)
@@ -188,7 +209,10 @@ fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destinat
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
     if cont.references_used() > 0 {
-        destination.write_composite_command(&[0x8E, 0x80], vec!(cont), pos, vec!(dbg))
+        write_pushcont(cont.clone(), dbg.clone(), destination, pos.clone()).or_else(|_| {
+            let dbg2 = DbgNode::from_ext(pos, vec!(dbg));
+            destination.write_composite_command(&[0x8E, 0x80], vec!(cont), dbg2)
+        })
     } else {
         let n = cont.data().len();
         if n <= 15 {
@@ -207,7 +231,8 @@ fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destinat
             //We cannot put command and code in one cell, because it will
             //be more than 1023 bits: 127 bytes (pushcont data) + 2 bytes(opcode).
             //Write as r = 1 and xx = 0x00.
-            destination.write_composite_command(&[0x8E, 0x80], vec!(cont), pos, vec!(dbg))
+            let dbg2 = DbgNode::from_ext(pos, vec!(dbg));
+            destination.write_composite_command(&[0x8E, 0x80], vec!(cont), dbg2)
         } else {
             log::error!(target: "compile", "Maybe cell longer than 1024 bit?");
             Err(OperationError::NotFitInSlice)
@@ -328,7 +353,7 @@ fn compile_setcontargs<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, dest
     destination.write_command(&[0xEC, ((rargs & 0x0F) << 4) | (nargs & 0x0F)], DbgNode::from(pos))
 }
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 fn compile_pushint<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     let (sub_str, radix) = if par[0].len() > 2 && (par[0][0..2].eq("0x") || par[0][0..2].eq("0X")) {
@@ -468,13 +493,13 @@ fn slice_cutting(mut long_slice: Vec<u8>, len: usize) -> SliceData {
         cursor = destination;
     }
 
-    return cursor;
+    cursor
 }
 
 fn compile_xchg<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos)
 -> CompileResult {
     par.assert_len_in(0..=2)?;
-    if par.len() == 0 {
+    if par.is_empty() {
         destination.write_command(&[0x01], DbgNode::from(pos))
     } else if par.len() == 1 {
         compile_with_register(par[0], 'S', 1..16, &[0x00], destination, pos)
@@ -485,7 +510,7 @@ fn compile_xchg<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination
         if reg1 >= reg2 {
             Err(OperationError::LogicErrorInParameters(
                 "arg 1 should be greater than arg 0"
-                ))
+            ))
         } else if reg1 == 0 {
             if reg2 <= 15 {
                 // XCHG s0, si == XCHG si
@@ -494,17 +519,15 @@ fn compile_xchg<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination
                 destination.write_command(&[0x11, reg2 as u8], DbgNode::from(pos))
             }
         } else if reg1 == 1 {
-            if (reg2 >= 2) && (reg2 <= 15) {
+            if (2..=15).contains(&reg2) {
                 destination.write_command(&[0x10 | reg2 as u8], DbgNode::from(pos))
             } else {
                 Err(ParameterError::OutOfRange.parameter("Register 2"))
             }
+        } else if reg2 > 15 {
+            Err(ParameterError::OutOfRange.parameter("Register 2"))
         } else {
-            if reg2 > 15 {
-                Err(ParameterError::OutOfRange.parameter("Register 2"))
-            } else {
-                destination.write_command(&[0x10, (((reg1 << 4) & 0xF0) | (reg2 & 0x0F)) as u8], DbgNode::from(pos))
-            }
+            destination.write_command(&[0x10, (((reg1 << 4) & 0xF0) | (reg2 & 0x0F)) as u8], DbgNode::from(pos))
         }
     }
 }
@@ -589,6 +612,7 @@ fn compile_throwifnot<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, desti
 
 fn compile_blob<T: Writer>(_engine: &mut Engine<T>, par: &Vec<&str>, destination: &mut T, pos: DbgPos)
 -> CompileResult {
+    par.assert_len(1)?;
     let data = par[0];
     if !data.to_ascii_lowercase().starts_with('x') {
         return Err(ParameterError::UnexpectedType.parameter("parameter"))
@@ -611,120 +635,122 @@ fn compile_cell<T: Writer>(engine: &mut Engine<T>, par: &Vec<&str>, destination:
         .compile(par[0])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    destination.write_composite_command(&[], vec!(cont), pos, vec!(dbg))
+    let mut dbg2 = DbgNode::from(pos);
+    dbg2.append_node(dbg);
+    destination.write_composite_command(&[], vec!(cont), dbg2)
 }
 
 // Compilation engine *********************************************************
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 impl<T: Writer> Engine<T> {
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     pub fn add_complex_commands(&mut self) {
         // Alphabetically sorted
-        self.COMPILE_ROOT.insert("-ROLL",          Engine::ROLLREV);
-        self.COMPILE_ROOT.insert("-ROLLX",         Engine::ROLLREVX);
-        self.COMPILE_ROOT.insert("-ROT",           Engine::ROTREV);
-        self.COMPILE_ROOT.insert("2DROP",          Engine::DROP2);
-        self.COMPILE_ROOT.insert("2DUP",           Engine::DUP2);
-        self.COMPILE_ROOT.insert("2OVER",          Engine::OVER2);
-        self.COMPILE_ROOT.insert("2ROT",           Engine::ROT2);
-        self.COMPILE_ROOT.insert("2SWAP",          Engine::SWAP2);
-        self.COMPILE_ROOT.insert("CALL",           compile_call);
-        self.COMPILE_ROOT.insert("CALLDICT",       compile_call);
-        self.COMPILE_ROOT.insert("CALLREF",        compile_callref);
-        self.COMPILE_ROOT.insert("CALLXARGS",      compile_callxargs);
-        self.COMPILE_ROOT.insert("BCHKBITS",       compile_bchkbits);
-        self.COMPILE_ROOT.insert("BCHKBITSQ",      compile_bchkbitsq);
-        self.COMPILE_ROOT.insert("DEBUGSTR",       compile_dumptosfmt);
-        self.COMPILE_ROOT.insert("DUMPTOSFMT",     compile_dumptosfmt);
-        self.COMPILE_ROOT.insert("IFREF",          compile_ifref);
-        self.COMPILE_ROOT.insert("IFNOTREF",       compile_ifnotref);
-        self.COMPILE_ROOT.insert("IFJMPREF",       compile_ifjmpref);
-        self.COMPILE_ROOT.insert("IFNOTJMPREF",    compile_ifnotjmpref);
-        self.COMPILE_ROOT.insert("IFREFELSE",      compile_ifrefelse);
-        self.COMPILE_ROOT.insert("IFELSEREF",      compile_ifelseref);
-        self.COMPILE_ROOT.insert("IFREFELSEREF",   compile_ifrefelseref);
-        self.COMPILE_ROOT.insert("JMPDICT",        Engine::JMP);
-        self.COMPILE_ROOT.insert("JMPREF",         compile_jmpref);
-        self.COMPILE_ROOT.insert("LOGSTR",         compile_logstr);
-        self.COMPILE_ROOT.insert("LSHIFT",         Div::<Signaling>::lshift);
-        self.COMPILE_ROOT.insert("LSHIFTDIV",      Div::<Signaling>::lshiftdiv);
-        self.COMPILE_ROOT.insert("LSHIFTDIVC",     Div::<Signaling>::lshiftdivc);
-        self.COMPILE_ROOT.insert("LSHIFTDIVMOD",   Div::<Signaling>::lshiftdivmod);
-        self.COMPILE_ROOT.insert("LSHIFTDIVMODC",  Div::<Signaling>::lshiftdivmodc);
-        self.COMPILE_ROOT.insert("LSHIFTDIVMODR",  Div::<Signaling>::lshiftdivmodr);
-        self.COMPILE_ROOT.insert("LSHIFTDIVR",     Div::<Signaling>::lshiftdivr);
-        self.COMPILE_ROOT.insert("LSHIFTMOD",      Div::<Signaling>::lshiftmod);
-        self.COMPILE_ROOT.insert("LSHIFTMODC",     Div::<Signaling>::lshiftmodc);
-        self.COMPILE_ROOT.insert("LSHIFTMODR",     Div::<Signaling>::lshiftmodr);
-        self.COMPILE_ROOT.insert("MODPOW2",        Div::<Signaling>::modpow2);
-        self.COMPILE_ROOT.insert("MODPOW2C",       Div::<Signaling>::modpow2c);
-        self.COMPILE_ROOT.insert("MODPOW2R",       Div::<Signaling>::modpow2r);
-        self.COMPILE_ROOT.insert("MULMODPOW2",     Div::<Signaling>::mulmodpow2);
-        self.COMPILE_ROOT.insert("MULMODPOW2C",    Div::<Signaling>::mulmodpow2c);
-        self.COMPILE_ROOT.insert("MULMODPOW2R",    Div::<Signaling>::mulmodpow2r);
-        self.COMPILE_ROOT.insert("MULRSHIFT",      Div::<Signaling>::mulrshift);
-        self.COMPILE_ROOT.insert("MULRSHIFTC",     Div::<Signaling>::mulrshiftc);
-        self.COMPILE_ROOT.insert("MULRSHIFTMOD",   Div::<Signaling>::mulrshiftmod);
-        self.COMPILE_ROOT.insert("MULRSHIFTMODC",  Div::<Signaling>::mulrshiftmodc);
-        self.COMPILE_ROOT.insert("MULRSHIFTMODR",  Div::<Signaling>::mulrshiftmodr);
-        self.COMPILE_ROOT.insert("MULRSHIFTR",     Div::<Signaling>::mulrshiftr);
-        self.COMPILE_ROOT.insert("POP",            compile_pop);
-        self.COMPILE_ROOT.insert("PRINTSTR",       compile_printstr);
-        self.COMPILE_ROOT.insert("PUSH",           compile_push);
-        self.COMPILE_ROOT.insert("PUSHCONT",       compile_pushcont);
-        self.COMPILE_ROOT.insert("PUSHINT",        compile_pushint);
-        self.COMPILE_ROOT.insert("PUSHREF",        compile_pushref);
-        self.COMPILE_ROOT.insert("PUSHREFCONT",    compile_pushrefcont);
-        self.COMPILE_ROOT.insert("PUSHSLICE",      compile_pushslice);
-        self.COMPILE_ROOT.insert("PUSHREFSLICE",   compile_pushrefslice);
-        self.COMPILE_ROOT.insert("SETCONTARGS",    compile_setcontargs);
-        self.COMPILE_ROOT.insert("SWAP",           compile_xchg);
-        self.COMPILE_ROOT.insert("QLSHIFT",        Div::<Quiet>::lshift);
-        self.COMPILE_ROOT.insert("QLSHIFTDIV",     Div::<Quiet>::lshiftdiv);
-        self.COMPILE_ROOT.insert("QLSHIFTDIVC",    Div::<Quiet>::lshiftdivc);
-        self.COMPILE_ROOT.insert("QLSHIFTDIVMOD",  Div::<Quiet>::lshiftdivmod);
-        self.COMPILE_ROOT.insert("QLSHIFTDIVMODC", Div::<Quiet>::lshiftdivmodc);
-        self.COMPILE_ROOT.insert("QLSHIFTDIVMODR", Div::<Quiet>::lshiftdivmodr);
-        self.COMPILE_ROOT.insert("QLSHIFTDIVR",    Div::<Quiet>::lshiftdivr);
-        self.COMPILE_ROOT.insert("QLSHIFTMOD",     Div::<Quiet>::lshiftmod);
-        self.COMPILE_ROOT.insert("QLSHIFTMODC",    Div::<Quiet>::lshiftmodc);
-        self.COMPILE_ROOT.insert("QLSHIFTMODR",    Div::<Quiet>::lshiftmodr);
-        self.COMPILE_ROOT.insert("QMODPOW2",       Div::<Quiet>::modpow2);
-        self.COMPILE_ROOT.insert("QMODPOW2C",      Div::<Quiet>::modpow2c);
-        self.COMPILE_ROOT.insert("QMODPOW2R",      Div::<Quiet>::modpow2r);
-        self.COMPILE_ROOT.insert("QMULMODPOW2",    Div::<Quiet>::mulmodpow2);
-        self.COMPILE_ROOT.insert("QMULMODPOW2C",   Div::<Quiet>::mulmodpow2c);
-        self.COMPILE_ROOT.insert("QMULMODPOW2R",   Div::<Quiet>::mulmodpow2r);
-        self.COMPILE_ROOT.insert("QMULRSHIFT",     Div::<Quiet>::mulrshift);
-        self.COMPILE_ROOT.insert("QMULRSHIFTC",    Div::<Quiet>::mulrshiftc);
-        self.COMPILE_ROOT.insert("QMULRSHIFTMOD",  Div::<Quiet>::mulrshiftmod);
-        self.COMPILE_ROOT.insert("QMULRSHIFTMODC", Div::<Quiet>::mulrshiftmodc);
-        self.COMPILE_ROOT.insert("QMULRSHIFTMODR", Div::<Quiet>::mulrshiftmodr);
-        self.COMPILE_ROOT.insert("QMULRSHIFTR",    Div::<Quiet>::mulrshiftr);
-        self.COMPILE_ROOT.insert("QRSHIFT",        Div::<Quiet>::rshift);
-        self.COMPILE_ROOT.insert("QRSHIFTC",       Div::<Quiet>::rshiftc);
-        self.COMPILE_ROOT.insert("QRSHIFTMOD",     Div::<Quiet>::rshiftmod);
-        self.COMPILE_ROOT.insert("QRSHIFTMODC",    Div::<Quiet>::rshiftmodc);
-        self.COMPILE_ROOT.insert("QRSHIFTMODR",    Div::<Quiet>::rshiftmodr);
-        self.COMPILE_ROOT.insert("QRSHIFTR",       Div::<Quiet>::rshiftr);
-        self.COMPILE_ROOT.insert("RSHIFT",         Div::<Signaling>::rshift);
-        self.COMPILE_ROOT.insert("RSHIFTMOD",      Div::<Signaling>::rshiftmod);
-        self.COMPILE_ROOT.insert("RSHIFTMODC",     Div::<Signaling>::rshiftmodc);
-        self.COMPILE_ROOT.insert("RSHIFTMODR",     Div::<Signaling>::rshiftmodr);
-        self.COMPILE_ROOT.insert("RSHIFTR",        Div::<Signaling>::rshiftr);
-        self.COMPILE_ROOT.insert("RSHIFTC",        Div::<Signaling>::rshiftc);
-        self.COMPILE_ROOT.insert("SDBEGINS",       compile_sdbegins);
-        self.COMPILE_ROOT.insert("SDBEGINSQ",      compile_sdbeginsq);
-        self.COMPILE_ROOT.insert("SETCONTARGS",    compile_setcontargs);
-        self.COMPILE_ROOT.insert("STSLICECONST",   compile_stsliceconst);
-        self.COMPILE_ROOT.insert("THROW",          compile_throw);
-        self.COMPILE_ROOT.insert("THROWIF",        compile_throwif);
-        self.COMPILE_ROOT.insert("THROWIFNOT",     compile_throwifnot);
-        self.COMPILE_ROOT.insert("XCHG",           compile_xchg);
-        // Add automatic commands
-        self.COMPILE_ROOT.insert(".BLOB",          compile_blob);
-        self.COMPILE_ROOT.insert(".CELL",          compile_cell);
+        self.handlers.insert("-ROLL",          Engine::ROLLREV);
+        self.handlers.insert("-ROLLX",         Engine::ROLLREVX);
+        self.handlers.insert("-ROT",           Engine::ROTREV);
+        self.handlers.insert("2DROP",          Engine::DROP2);
+        self.handlers.insert("2DUP",           Engine::DUP2);
+        self.handlers.insert("2OVER",          Engine::OVER2);
+        self.handlers.insert("2ROT",           Engine::ROT2);
+        self.handlers.insert("2SWAP",          Engine::SWAP2);
+        self.handlers.insert("CALL",           compile_call);
+        self.handlers.insert("CALLDICT",       compile_call);
+        self.handlers.insert("CALLREF",        compile_callref);
+        self.handlers.insert("CALLXARGS",      compile_callxargs);
+        self.handlers.insert("BCHKBITS",       compile_bchkbits);
+        self.handlers.insert("BCHKBITSQ",      compile_bchkbitsq);
+        self.handlers.insert("DEBUGSTR",       compile_dumptosfmt);
+        self.handlers.insert("DUMPTOSFMT",     compile_dumptosfmt);
+        self.handlers.insert("IFREF",          compile_ifref);
+        self.handlers.insert("IFNOTREF",       compile_ifnotref);
+        self.handlers.insert("IFJMPREF",       compile_ifjmpref);
+        self.handlers.insert("IFNOTJMPREF",    compile_ifnotjmpref);
+        self.handlers.insert("IFREFELSE",      compile_ifrefelse);
+        self.handlers.insert("IFELSEREF",      compile_ifelseref);
+        self.handlers.insert("IFREFELSEREF",   compile_ifrefelseref);
+        self.handlers.insert("JMPDICT",        Engine::JMP);
+        self.handlers.insert("JMPREF",         compile_jmpref);
+        self.handlers.insert("LOGSTR",         compile_logstr);
+        self.handlers.insert("LSHIFT",         Div::<Signaling>::lshift);
+        self.handlers.insert("LSHIFTDIV",      Div::<Signaling>::lshiftdiv);
+        self.handlers.insert("LSHIFTDIVC",     Div::<Signaling>::lshiftdivc);
+        self.handlers.insert("LSHIFTDIVMOD",   Div::<Signaling>::lshiftdivmod);
+        self.handlers.insert("LSHIFTDIVMODC",  Div::<Signaling>::lshiftdivmodc);
+        self.handlers.insert("LSHIFTDIVMODR",  Div::<Signaling>::lshiftdivmodr);
+        self.handlers.insert("LSHIFTDIVR",     Div::<Signaling>::lshiftdivr);
+        self.handlers.insert("LSHIFTMOD",      Div::<Signaling>::lshiftmod);
+        self.handlers.insert("LSHIFTMODC",     Div::<Signaling>::lshiftmodc);
+        self.handlers.insert("LSHIFTMODR",     Div::<Signaling>::lshiftmodr);
+        self.handlers.insert("MODPOW2",        Div::<Signaling>::modpow2);
+        self.handlers.insert("MODPOW2C",       Div::<Signaling>::modpow2c);
+        self.handlers.insert("MODPOW2R",       Div::<Signaling>::modpow2r);
+        self.handlers.insert("MULMODPOW2",     Div::<Signaling>::mulmodpow2);
+        self.handlers.insert("MULMODPOW2C",    Div::<Signaling>::mulmodpow2c);
+        self.handlers.insert("MULMODPOW2R",    Div::<Signaling>::mulmodpow2r);
+        self.handlers.insert("MULRSHIFT",      Div::<Signaling>::mulrshift);
+        self.handlers.insert("MULRSHIFTC",     Div::<Signaling>::mulrshiftc);
+        self.handlers.insert("MULRSHIFTMOD",   Div::<Signaling>::mulrshiftmod);
+        self.handlers.insert("MULRSHIFTMODC",  Div::<Signaling>::mulrshiftmodc);
+        self.handlers.insert("MULRSHIFTMODR",  Div::<Signaling>::mulrshiftmodr);
+        self.handlers.insert("MULRSHIFTR",     Div::<Signaling>::mulrshiftr);
+        self.handlers.insert("POP",            compile_pop);
+        self.handlers.insert("PRINTSTR",       compile_printstr);
+        self.handlers.insert("PUSH",           compile_push);
+        self.handlers.insert("PUSHCONT",       compile_pushcont);
+        self.handlers.insert("PUSHINT",        compile_pushint);
+        self.handlers.insert("PUSHREF",        compile_pushref);
+        self.handlers.insert("PUSHREFCONT",    compile_pushrefcont);
+        self.handlers.insert("PUSHSLICE",      compile_pushslice);
+        self.handlers.insert("PUSHREFSLICE",   compile_pushrefslice);
+        self.handlers.insert("SETCONTARGS",    compile_setcontargs);
+        self.handlers.insert("SWAP",           compile_xchg);
+        self.handlers.insert("QLSHIFT",        Div::<Quiet>::lshift);
+        self.handlers.insert("QLSHIFTDIV",     Div::<Quiet>::lshiftdiv);
+        self.handlers.insert("QLSHIFTDIVC",    Div::<Quiet>::lshiftdivc);
+        self.handlers.insert("QLSHIFTDIVMOD",  Div::<Quiet>::lshiftdivmod);
+        self.handlers.insert("QLSHIFTDIVMODC", Div::<Quiet>::lshiftdivmodc);
+        self.handlers.insert("QLSHIFTDIVMODR", Div::<Quiet>::lshiftdivmodr);
+        self.handlers.insert("QLSHIFTDIVR",    Div::<Quiet>::lshiftdivr);
+        self.handlers.insert("QLSHIFTMOD",     Div::<Quiet>::lshiftmod);
+        self.handlers.insert("QLSHIFTMODC",    Div::<Quiet>::lshiftmodc);
+        self.handlers.insert("QLSHIFTMODR",    Div::<Quiet>::lshiftmodr);
+        self.handlers.insert("QMODPOW2",       Div::<Quiet>::modpow2);
+        self.handlers.insert("QMODPOW2C",      Div::<Quiet>::modpow2c);
+        self.handlers.insert("QMODPOW2R",      Div::<Quiet>::modpow2r);
+        self.handlers.insert("QMULMODPOW2",    Div::<Quiet>::mulmodpow2);
+        self.handlers.insert("QMULMODPOW2C",   Div::<Quiet>::mulmodpow2c);
+        self.handlers.insert("QMULMODPOW2R",   Div::<Quiet>::mulmodpow2r);
+        self.handlers.insert("QMULRSHIFT",     Div::<Quiet>::mulrshift);
+        self.handlers.insert("QMULRSHIFTC",    Div::<Quiet>::mulrshiftc);
+        self.handlers.insert("QMULRSHIFTMOD",  Div::<Quiet>::mulrshiftmod);
+        self.handlers.insert("QMULRSHIFTMODC", Div::<Quiet>::mulrshiftmodc);
+        self.handlers.insert("QMULRSHIFTMODR", Div::<Quiet>::mulrshiftmodr);
+        self.handlers.insert("QMULRSHIFTR",    Div::<Quiet>::mulrshiftr);
+        self.handlers.insert("QRSHIFT",        Div::<Quiet>::rshift);
+        self.handlers.insert("QRSHIFTC",       Div::<Quiet>::rshiftc);
+        self.handlers.insert("QRSHIFTMOD",     Div::<Quiet>::rshiftmod);
+        self.handlers.insert("QRSHIFTMODC",    Div::<Quiet>::rshiftmodc);
+        self.handlers.insert("QRSHIFTMODR",    Div::<Quiet>::rshiftmodr);
+        self.handlers.insert("QRSHIFTR",       Div::<Quiet>::rshiftr);
+        self.handlers.insert("RSHIFT",         Div::<Signaling>::rshift);
+        self.handlers.insert("RSHIFTMOD",      Div::<Signaling>::rshiftmod);
+        self.handlers.insert("RSHIFTMODC",     Div::<Signaling>::rshiftmodc);
+        self.handlers.insert("RSHIFTMODR",     Div::<Signaling>::rshiftmodr);
+        self.handlers.insert("RSHIFTR",        Div::<Signaling>::rshiftr);
+        self.handlers.insert("RSHIFTC",        Div::<Signaling>::rshiftc);
+        self.handlers.insert("SDBEGINS",       compile_sdbegins);
+        self.handlers.insert("SDBEGINSQ",      compile_sdbeginsq);
+        self.handlers.insert("SETCONTARGS",    compile_setcontargs);
+        self.handlers.insert("STSLICECONST",   compile_stsliceconst);
+        self.handlers.insert("THROW",          compile_throw);
+        self.handlers.insert("THROWIF",        compile_throwif);
+        self.handlers.insert("THROWIFNOT",     compile_throwifnot);
+        self.handlers.insert("XCHG",           compile_xchg);
+        // Pseudo instructions
+        self.handlers.insert(".BLOB",          compile_blob);
+        self.handlers.insert(".CELL",          compile_cell);
     }
 }

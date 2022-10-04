@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Version: 1.2.48
+## Version: 1.2.49
 
 ### New
+ - Merge dev into master
+ - Emit pushcont w/ references
  - Diff binary (#74)
  - Diff binary
  - Auto update patch version

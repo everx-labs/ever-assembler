@@ -23,10 +23,10 @@ use crate::debug::{DbgNode, DbgPos};
 
 // Compilation engine *********************************************************
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 impl<T: Writer> Engine<T> {
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     simple_commands! {
         enumerate_simple_commands
         ABS                                  => 0xB6, 0x0B
@@ -313,7 +313,7 @@ impl<T: Writer> Engine<T> {
         ISPOS                                => 0xC2, 0x00
         ISTUPLE                              => 0x6F, 0x8A
         ISZERO                               => 0xC0, 0x00
-        JMP n = parse_const_u14              => 0xF1, 0x40 | (((n / 256) as u8)), ((n % 256) as u8)
+        JMP n = parse_const_u14              => 0xF1, 0x40 | ((n / 256) as u8), ((n % 256) as u8)
         JMPX                                 => 0xD9
         JMPXARGS p = parse_const_u4          => 0xDB, 0x10 | p
         JMPXDATA                             => 0xDB, 0x35
@@ -843,14 +843,14 @@ impl<T: Writer> Engine<T> {
     pub fn add_simple_commands(&mut self) {
         // Add automatic commands
         for (command, handler) in Self::enumerate_simple_commands() {
-            if self.COMPILE_ROOT.insert(command, *handler).is_some() {
+            if self.handlers.insert(command, *handler).is_some() {
                 panic!("Token {} was already registered.", command);
             }
         }
 
         #[cfg(feature = "gosh")]
         for (command, handler) in Self::enumerate_diff_commands() {
-            if self.COMPILE_ROOT.insert(command, *handler).is_some() {
+            if self.handlers.insert(command, *handler).is_some() {
                 panic!("Token {} was already registered.", command);
             }
         }

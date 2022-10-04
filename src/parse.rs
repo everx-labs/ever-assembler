@@ -138,12 +138,10 @@ pub(super) fn parse_register(
     symbol: char,
     range: Range<isize>,
 ) -> Result<isize, ParameterError> {
-    if register.len() <= 1 {
-        Err(ParameterError::UnexpectedType)
-    } else if register.chars().next().unwrap().to_ascii_uppercase() != symbol {
+    if register.len() <= 1 || register.chars().next().unwrap().to_ascii_uppercase() != symbol {
         Err(ParameterError::UnexpectedType)
     } else {
-        match isize::from_str_radix(&register[1..], 10) {
+        match register[1..].parse::<isize>() {
             Ok(number) => if (number < range.start) || (number >= range.end) {
                 Err(ParameterError::OutOfRange)
             } else {
@@ -153,7 +151,6 @@ pub(super) fn parse_register(
         }
     }
 }
-
 
 pub fn parse_slice(slice: &str, bits: usize) -> Result<Vec<u8>, ParameterError> {
     if slice.len() <= 1 {
@@ -237,8 +234,8 @@ pub(super) fn parse_string(arg: &str) -> Vec<u8> {
     if string.to_ascii_uppercase().starts_with('X') {
         string.remove(0);
         let res = hex::decode(string);
-        if res.is_ok() {
-            return res.unwrap()
+        if let Ok(res) = res {
+            return res
         }
     }
     Vec::from(arg)

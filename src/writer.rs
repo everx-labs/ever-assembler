@@ -14,113 +14,98 @@
 use crate::OperationError;
 use ton_types::{BuilderData, SliceData};
 
-use crate::debug::{DbgNode, DbgPos};
+use crate::debug::DbgNode;
 
 pub trait Writer : 'static {
     fn new() -> Self;
     fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError>;
     fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError>;
-    fn write_composite_command(&mut self, code: &[u8], references: Vec<BuilderData>, pos: DbgPos, dbgs: Vec<DbgNode>) -> Result<(), OperationError>;
+    fn write_composite_command(&mut self, code: &[u8], references: Vec<BuilderData>, dbg: DbgNode) -> Result<(), OperationError>;
     fn finalize(self) -> (BuilderData, DbgNode);
 }
 
+#[derive(Clone, Default)]
+struct Unit {
+    builder: BuilderData,
+    dbg: DbgNode,
+}
+
+impl Unit {
+    fn new(builder: BuilderData, dbg: DbgNode) -> Self {
+        Self { builder, dbg }
+    }
+}
+
 pub(crate) struct CodePage0 {
-    cells: Vec<BuilderData>,
-    dbg: Vec<DbgNode>,
+    units: Vec<Unit>
 }
 
 impl Writer for CodePage0 {
     /// Constructs new Writer
     fn new() -> Self {
-        Self {
-            cells: vec![BuilderData::new()],
-            dbg: vec![DbgNode::new()],
-        }
+        Self { units: vec!(Unit::default()) }
     }
-    /// writes simple command
+    /// Writes simple command
     fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError> {
         self.write_command_bitstring(command, command.len() * 8, dbg)
     }
     fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError> {
-        if !self.cells.is_empty() {
-            let offset = self.cells.last().unwrap().bits_used();
-            if self.cells.last_mut().unwrap().append_raw(command, bits).is_ok() {
-                self.dbg.last_mut().unwrap().inline_node(offset, dbg);
+        if let Some(last) = self.units.last_mut() {
+            let orig_offset = last.builder.bits_used();
+            if last.builder.append_raw(command, bits).is_ok() {
+                last.dbg.inline_node(orig_offset, dbg);
                 return Ok(());
             }
         }
-        let mut code = BuilderData::new();
-        if code.append_raw(command, bits).is_ok() {
-            self.cells.push(code);
-            self.dbg.push(dbg);
+        if let Ok(new_last) = BuilderData::with_raw(command, bits) {
+            self.units.push(Unit::new(new_last, dbg));
             return Ok(());
         }
         Err(OperationError::NotFitInSlice)
     }
-    /// writes command with additional reference
+    /// Writes command with additional references
     fn write_composite_command(
         &mut self,
         command: &[u8],
         references: Vec<BuilderData>,
-        pos: DbgPos,
-        dbgs: Vec<DbgNode>,
+        dbg: DbgNode,
     ) -> Result<(), OperationError> {
-        assert_eq!(references.len(), dbgs.len());
-        if !self.cells.is_empty() {
-            let mut last = self.cells.last().unwrap().clone();
-            let offset = last.bits_used();
-            if last.references_free() > references.len() // one cell remains reserved for finalization
-                && last.append_raw(command, command.len() * 8).is_ok()
-                && checked_append_references(&mut last, &references)? {
-
-                *self.cells.last_mut().unwrap() = last;
-
-                let node = self.dbg.last_mut().unwrap();
-                node.append(offset, pos.clone());
-                for dbg in dbgs {
-                    node.append_node(dbg);
-                }
+        assert_eq!(references.len(), dbg.children.len());
+        if let Some(mut last) = self.units.last().cloned() {
+            let orig_offset = last.builder.bits_used();
+            if last.builder.references_free() > references.len() // one cell remains reserved for finalization
+                && last.builder.append_raw(command, command.len() * 8).is_ok()
+                && checked_append_references(&mut last.builder, &references)? {
+                last.dbg.inline_node(orig_offset, dbg);
+                *self.units.last_mut().unwrap() = last;
                 return Ok(());
             }
         }
-        let mut code = BuilderData::new();
-        if code.append_raw(command, command.len() * 8).is_ok()
-            && checked_append_references(&mut code, &references)? {
-            self.cells.push(code);
-
-            let mut node = DbgNode::from(pos);
-            for dbg in dbgs {
-                node.append_node(dbg);
-            }
-            self.dbg.push(node);
-
+        let mut new_last = BuilderData::new();
+        if new_last.append_raw(command, command.len() * 8).is_ok()
+            && checked_append_references(&mut new_last, &references)? {
+            self.units.push(Unit::new(new_last, dbg));
             return Ok(());
         }
         Err(OperationError::NotFitInSlice)
     }
-    /// puts every cell as a reference to the previous one
+    /// Puts recorded cells in a linear sequence
     fn finalize(mut self) -> (BuilderData, DbgNode) {
-        let mut cursor = self.cells.pop().expect("cells can't be empty");
-        let mut dbg = self.dbg.pop().expect("dbgs can't be empty");
-        while !self.cells.is_empty() {
-            let mut destination = self.cells.pop()
-                .expect("vector is not empty");
-            let offset = destination.bits_used();
-            let slice = SliceData::from(cursor.clone().into_cell().expect("failure while convert BuilderData to cell"));
-            let mut next = self.dbg.pop().expect("dbg vector is not empty");
+        let mut cursor = self.units.pop().expect("cells can't be empty");
+        while let Some(mut destination) = self.units.pop() {
+            let orig_offset = destination.builder.bits_used();
+            let cell = cursor.builder.clone().into_cell().expect("failed to convert builder to cell");
             // try to inline cursor into destination
-            if destination.references_free() >= cursor.references_used()
-                && destination.checked_append_references_and_data(&slice).is_ok() {
-                next.inline_node(offset, dbg);
-            // otherwise just attach cursor to destination as a reference
+            if destination.builder.checked_append_references_and_data(&SliceData::from(cell.clone())).is_ok() {
+                destination.dbg.inline_node(orig_offset, cursor.dbg);
             } else {
-                destination.append_reference_cell(cursor.into_cell().expect("failure while convert BuilderData to cell"));
-                next.append_node(dbg);
+                // otherwise just attach cursor to destination as a reference
+                destination.builder.append_reference_cell(cell);
+                destination.dbg.append_node(cursor.dbg);
             }
             cursor = destination;
-            dbg = next;
         }
-        (cursor, dbg)
+        (cursor.builder, cursor.dbg)
     }
 }
 

@@ -20,6 +20,12 @@ pub struct Position {
     pub column: usize,
 }
 
+impl Position {
+    pub fn new(filename: String, line: usize, column: usize) -> Self {
+        Self { filename, line, column }
+    }
+}
+
 pub type OperationName = String;
 pub type ParameterName = String;
 pub type Explanation = String;
@@ -148,7 +154,7 @@ impl fmt::Display for OperationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn indent(text: String) -> String {
             let mut indented = "".to_string();
-            for line in text.split("\n") {
+            for line in text.split('\n') {
                 if line.is_empty() { break; }
                 indented += "  ";
                 indented += line;

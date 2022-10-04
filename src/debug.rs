@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use ton_types::{Cell, UInt256};
 
 pub type Lines = Vec<Line>;
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Line {
     pub text: String,
     pub pos: DbgPos
@@ -43,7 +43,7 @@ pub fn lines_to_string(lines: &Lines) -> String {
         .fold(String::new(), |result, line| result + line.text.as_str())
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DbgPos {
     pub filename: String,
     pub line: usize,
@@ -62,33 +62,23 @@ impl std::fmt::Display for DbgPos {
     }
 }
 
-impl Default for DbgPos {
-    fn default() -> Self {
-        Self { filename: String::new(), line: 0, line_code: 0 }
-    }
-}
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DbgNode {
     pub offsets: BTreeMap<usize, DbgPos>,
     pub children: Vec<DbgNode>,
 }
 
 impl DbgNode {
-    pub fn new() -> Self {
+    pub fn from_ext(pos: DbgPos, dbgs: Vec<DbgNode>) -> Self {
         Self {
-            offsets: BTreeMap::new(),
-            children: vec![],
+            offsets: BTreeMap::from([(0, pos)]),
+            children: dbgs
         }
     }
     pub fn from(pos: DbgPos) -> Self {
-        let mut node = Self::new();
-        node.offsets.insert(0, pos);
-        node
+        Self::from_ext(pos, vec!())
     }
-    pub fn append(self: &mut Self, offset: usize, pos: DbgPos) {
-        self.offsets.insert(offset, pos);
-    }
-    pub fn inline_node(self: &mut Self, offset: usize, dbg: DbgNode) {
+    pub fn inline_node(&mut self, offset: usize, dbg: DbgNode) {
         for entry in dbg.offsets {
             self.offsets.insert(entry.0 + offset, entry.1);
         }
@@ -96,7 +86,7 @@ impl DbgNode {
             self.append_node(child);
         }
     }
-    pub fn append_node(self: &mut Self, dbg: DbgNode) {
+    pub fn append_node(&mut self, dbg: DbgNode) {
         assert!(self.children.len() < 4);
         self.children.push(dbg)
     }
@@ -111,18 +101,15 @@ impl std::fmt::Display for DbgNode {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct DbgInfo {
     pub map: BTreeMap<String, BTreeMap<usize, DbgPos>>
 }
 
 impl DbgInfo {
-    pub fn new() -> Self {
-        DbgInfo { map: BTreeMap::new() }
-    }
     pub fn from(cell: &Cell, node: &DbgNode) -> Self {
         let mut info = DbgInfo { map: BTreeMap::new() };
-        info.collect(&cell, &node);
+        info.collect(cell, node);
         info
     }
     pub fn len(&self) -> usize {
@@ -146,12 +133,10 @@ impl DbgInfo {
     pub fn first_entry(&self) -> Option<&BTreeMap<usize, DbgPos>> {
         self.map.iter().next().map(|k_v| k_v.1)
     }
-    fn collect(self: &mut Self, cell: &Cell, dbg: &DbgNode) {
+    fn collect(&mut self, cell: &Cell, dbg: &DbgNode) {
         let hash = cell.repr_hash().to_hex_string();
         // note existence of identical cells in a tree is normal
-        if !self.map.contains_key(&hash) {
-            self.map.insert(hash, dbg.offsets.clone());
-        }
+        self.map.entry(hash).or_insert_with(|| dbg.offsets.clone());
         for i in 0..cell.references_count() {
             let child_cell = cell.reference(i).unwrap();
             let child_dbg = dbg.children[i].clone();

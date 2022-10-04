@@ -119,7 +119,7 @@ impl<T: Writer> CommandContext<T> {
     fn compile(
         &mut self,
         destination: &mut T,
-        par: &mut Vec<(usize, usize, &str, bool)>,
+        par: &mut Vec<Token>,
         engine: &mut Engine<T>,
     ) -> Result<(), CompileError> {
         let rule = match self.rule_option.as_ref() {
@@ -129,13 +129,13 @@ impl<T: Writer> CommandContext<T> {
         let (line_no, char_no) = engine.set_pos(self.line_no_par, self.char_no_par);
         let mut n = par.len();
         loop {
-            let par = &par[0..n].iter().map(|(_, _, e, _)| *e).collect::<Vec<_>>();
+            let par = par[0..n].iter().map(|p| p.token).collect::<Vec<_>>();
             let pos = if let Some(line) = engine.lines.get(self.line_no_cmd - 1) {
                 line.pos.clone()
             } else {
                 DbgPos::default()
             };
-            match rule(engine, par, destination, pos) {
+            match rule(engine, &par, destination, pos) {
                 Ok(_) => break,
                 Err(OperationError::TooManyParameters) if n != 0 => {
                     n -= 1;
@@ -147,36 +147,29 @@ impl<T: Writer> CommandContext<T> {
         self.rule_option = None;
         // detecting some errors here
         if n > 1 && self.operation != "IFREFELSEREF" { // the only insn taking two blocks without comma between
-            for (line, column, _, was_comma) in &par[1..n] {
-                if !*was_comma {
-                    if let Some(line) = engine.lines.get(*line - 1) {
+            for token in &par[1..n] {
+                if !token.was_comma {
+                    if let Some(line) = engine.lines.get(token.line - 1) {
                         let pos = &line.pos;
-                        return Err(CompileError::syntax(pos.line_code, *column, "Missing comma").with_filename(pos.filename.clone()))
+                        return Err(CompileError::syntax(pos.line_code, token.column, "Missing comma").with_filename(pos.filename.clone()))
                     } else {
-                        return Err(CompileError::syntax(*line, *column, "Missing comma"))
+                        return Err(CompileError::syntax(token.line, token.column, "Missing comma"))
                     }
                 }
             }
         }
         par.drain(..n);
         if !par.is_empty() {
-            let (line, column, token, was_comma) = par.remove(0);
-            let position = if let Some(line) = engine.lines.get(line - 1) {
+            let token = par.remove(0);
+            let position = if let Some(line) = engine.lines.get(token.line - 1) {
                 let pos = &line.pos;
                 let filename = pos.filename.clone();
                 let line = pos.line_code;
-                Position { filename, line, column }
+                Position::new(filename, line, token.column)
             } else {
-                Position { filename: String::new(), line, column }
+                Position::new(String::new(), token.line, token.column)
             };
-            if was_comma {
-                return Err(CompileError::Operation(
-                    position,
-                    self.operation.clone(),
-                    OperationError::TooManyParameters,
-                ))
-            } else if n == 0 {
-                // or CompileError::Operation
+            if token.was_comma || n == 0 {
                 return Err(CompileError::Operation(
                     position,
                     self.operation.clone(),
@@ -185,7 +178,7 @@ impl<T: Writer> CommandContext<T> {
             } else {
                 // or CompileError::Syntax "missing comma"
                 return Err(CompileError::UnknownOperation(
-                    position, token.into()
+                    position, token.token.into()
                 ))
             }
         }
@@ -200,19 +193,32 @@ pub struct Engine<T: Writer> {
     line_no: usize,
     char_no: usize,
     lines: Lines,
-    COMPILE_ROOT: HashMap<&'static str, CompileHandler<T>>,
+    handlers: HashMap<&'static str, CompileHandler<T>>,
 }
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+struct Token<'a> {
+    line: usize,
+    column: usize,
+    token: &'a str,
+    was_comma: bool,
+}
+
+impl<'a> Token<'a> {
+    fn new(line: usize, column: usize, token: &'a str, was_comma: bool) -> Self {
+        Self { line, column, token, was_comma }
+    }
+}
+
+#[rustfmt::skip]
 impl<T: Writer> Engine<T> {
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     pub fn new(lines: Lines) -> Engine<T> {
         let mut ret = Engine::<T> {
             line_no: 1,
             char_no: 1,
             lines,
-            COMPILE_ROOT: HashMap::new(),
+            handlers: HashMap::new(),
         };
         ret.add_complex_commands();
         ret.add_simple_commands();
@@ -220,13 +226,7 @@ impl<T: Writer> Engine<T> {
     }
 
     fn is_whitespace(x: char) -> bool {
-        match x {
-            ' ' => true,
-            '\n' => true,
-            '\r' => true,
-            '\t' => true,
-            _ => false,
-        }
+        matches!(x, ' ' | '\n' | '\r' | '\t')
     }
 
     fn set_pos(&mut self, line_no: usize, char_no: usize) -> (usize, usize) {
@@ -237,7 +237,7 @@ impl<T: Writer> Engine<T> {
 
     fn compile(&mut self, source: &str) -> Result<T, CompileError> {
         let mut ret = T::new();
-        let mut par: Vec<(usize, usize, &str, bool)> = Vec::new();
+        let mut par = Vec::new();
         let mut acc = (0, 0);
         let mut expect_comma = false;
         let mut comma_found = false;
@@ -267,7 +267,7 @@ impl<T: Writer> Engine<T> {
                     in_block -= 1
                 }
                 if in_block == 0 {
-                    par.push((y, x, &source[s0..s1], comma_found));
+                    par.push(Token::new(y, x, &source[s0..s1], comma_found));
                     acc = (new_s1, new_s1)
                 } else {
                     acc = (s0, new_s1)
@@ -355,19 +355,17 @@ impl<T: Writer> Engine<T> {
             let token = source[s0..s1].to_ascii_uppercase();
             log::trace!(target: "tvm", "--> {}\n", token);
             x -= token.chars().count();
-            match self.COMPILE_ROOT.get(&token[..]) {
+            match self.handlers.get(token.as_str()) {
                 None => {
                     if command_ctx.has_command() {
-                        par.push((y, x, &source[s0..s1], was_comma));
+                        par.push(Token::new(y, x, &source[s0..s1], was_comma));
                         was_comma = false;
                         continue
+                    } else if let Some(line) = self.lines.get(y - 1) {
+                        let pos = &line.pos;
+                        return Err(CompileError::unknown(pos.line_code, x, &token).with_filename(pos.filename.clone()))
                     } else {
-                        if let Some(line) = self.lines.get(y - 1) {
-                            let pos = &line.pos;
-                            return Err(CompileError::unknown(pos.line_code, x, &token).with_filename(pos.filename.clone()))
-                        } else {
-                            return Err(CompileError::unknown(y, x, &token))
-                        }
+                        return Err(CompileError::unknown(y, x, &token))
                     }
                 }
                 Some(&new_rule) => {
@@ -382,7 +380,7 @@ impl<T: Writer> Engine<T> {
                             if was_newline { // it seems realy new command - rturn correct missing params error
                                 return Err(e)
                             } else {
-                                par.push((y, x, &source[s0..s1], was_comma));
+                                par.push(Token::new(y, x, &source[s0..s1], was_comma));
                                 was_comma = false;
                             }
                         }
@@ -428,5 +426,6 @@ pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), Comp
     let dbg_info = DbgInfo::from(&cell, &dbg);
     Ok((cell.into(), dbg_info))
 }
+
 
 
