@@ -2,7 +2,7 @@
 build = 'build.rs'
 edition = '2018'
 name = 'ton_labs_assembler'
-version = '1.2.50'
+version = '1.2.51'
 
 [dependencies]
 failure = '0.1.7'
