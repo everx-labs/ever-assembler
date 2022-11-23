@@ -404,27 +404,39 @@ impl<T: Writer> Engine<T> {
 
 }
 
+pub fn compile_code_to_builder(code: &str) -> Result<BuilderData, CompileError> {
+    log::trace!(target: "tvm", "begin compile\n");
+    Ok(Engine::<CodePage0>::new(vec![]).compile(code)?.finalize().0)
+}
+
 pub fn compile_code(code: &str) -> Result<SliceData, CompileError> {
-    compile_code_to_cell(code).map(|code| code.into())
+    let code = compile_code_to_builder(code)?;
+    match SliceData::load_builder(code) {
+        Ok(code) => Ok(code),
+        Err(_) => Err(CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))
+    }
 }
 
 pub fn compile_code_to_cell(code: &str) -> Result<Cell, CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
-    Engine::<CodePage0>::new(vec![]).compile(code).map(|code| code.finalize().0.into_cell().map_err(|_| CompileError::unknown(0, 0, "failure while convert BuilderData to cell")))?
-}
-
-pub fn compile_code_to_builder(code: &str) -> Result<BuilderData, CompileError> {
-    log::trace!(target: "tvm", "begin compile\n");
-    Engine::<CodePage0>::new(vec![]).compile(code).map(|code| code.finalize().0)
+    let code = compile_code_to_builder(code)?;
+    match code.into_cell() {
+        Ok(code) => Ok(code),
+        Err(_) => Err(CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))
+    }
 }
 
 pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
     let source = lines_to_string(&code);
-    let (builder, dbg) = Engine::<CodePage0>::new(code).compile(source.as_str()).map(|code| code.finalize())?;
-    let cell = builder.into_cell().map_err(|_| CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))?;
-    let dbg_info = DbgInfo::from(&cell, &dbg);
-    Ok((cell.into(), dbg_info))
+    let (builder, dbg) = Engine::<CodePage0>::new(code).compile(&source)?.finalize();
+    match SliceData::load_builder(builder) {
+        Ok(code) => {
+            let dbg_info = DbgInfo::from(code.cell(), &dbg);
+            Ok((code, dbg_info))
+        }
+        Err(_) => Err(CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))
+    }
 }
 
 
