@@ -94,13 +94,13 @@ impl Writer for CodePage0 {
         let mut cursor = self.units.pop().expect("cells can't be empty");
         while let Some(mut destination) = self.units.pop() {
             let orig_offset = destination.builder.bits_used();
-            let cell = cursor.builder.clone().into_cell().expect("failed to convert builder to cell");
+            let slice = SliceData::load_builder(cursor.builder).expect("failed to convert builder to cell");
             // try to inline cursor into destination
-            if destination.builder.checked_append_references_and_data(&SliceData::from(cell.clone())).is_ok() {
+            if destination.builder.checked_append_references_and_data(&slice).is_ok() {
                 destination.dbg.inline_node(orig_offset, cursor.dbg);
             } else {
                 // otherwise just attach cursor to destination as a reference
-                destination.builder.append_reference_cell(cell);
+                destination.builder.append_reference_cell(slice.into_cell());
                 destination.dbg.append_node(cursor.dbg);
             }
             cursor = destination;
@@ -109,7 +109,7 @@ impl Writer for CodePage0 {
     }
 }
 
-fn checked_append_references(builder: &mut BuilderData, refs: &Vec<BuilderData>) -> Result<bool, OperationError> {
+fn checked_append_references(builder: &mut BuilderData, refs: &[BuilderData]) -> Result<bool, OperationError> {
     for reference in refs {
         if builder.checked_append_reference(reference.clone().into_cell().map_err(|_| OperationError::NotFitInSlice)?).is_err() {
             return Ok(false);
