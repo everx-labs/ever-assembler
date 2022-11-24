@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
+* Copyright (C) 2019-2022 TON Labs. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -101,9 +101,15 @@ impl std::fmt::Display for DbgNode {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct DbgInfo {
-    pub map: BTreeMap<String, BTreeMap<usize, DbgPos>>
+    map: BTreeMap<[u8; 32], BTreeMap<usize, DbgPos>>
+}
+
+impl std::fmt::Debug for DbgInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.map.iter()).finish()
+    }
 }
 
 impl DbgInfo {
@@ -122,19 +128,19 @@ impl DbgInfo {
         self.map.append(&mut other.map);
     }
     pub fn insert(&mut self, key: UInt256, tree: BTreeMap<usize, DbgPos>) {
-        self.map.entry(key.to_hex_string()).or_insert(tree);
+        self.map.entry(key.inner()).or_insert(tree);
     }
     pub fn remove(&mut self, key: &UInt256) -> Option<BTreeMap<usize, DbgPos>> {
-        self.map.remove(&key.to_hex_string())
+        self.map.remove(key.as_slice())
     }
     pub fn get(&self, key: &UInt256) -> Option<&BTreeMap<usize, DbgPos>> {
-        self.map.get(&key.to_hex_string())
+        self.map.get(key.as_slice())
     }
     pub fn first_entry(&self) -> Option<&BTreeMap<usize, DbgPos>> {
         self.map.iter().next().map(|k_v| k_v.1)
     }
     fn collect(&mut self, cell: &Cell, dbg: &DbgNode) {
-        let hash = cell.repr_hash().to_hex_string();
+        let hash = cell.repr_hash().inner();
         // note existence of identical cells in a tree is normal
         self.map.entry(hash).or_insert_with(|| dbg.offsets.clone());
         for i in 0..cell.references_count() {
