@@ -36,7 +36,7 @@ pub use debug::DbgPos;
 // Basic types *****************************************************************
 /// Operation Compilation result
 type CompileResult = Result<(), OperationError>;
-type CompileHandler<T> = fn(&mut Engine<T>, &Vec<&str>, destination:&mut T, pos: DbgPos) -> CompileResult;
+type CompileHandler<T> = fn(&mut Engine<T>, &[&str], destination:&mut T, pos: DbgPos) -> CompileResult;
 
 // CompileError::Operation handlers ***********************************************************
 trait EnsureParametersCountInRange {
@@ -45,7 +45,7 @@ trait EnsureParametersCountInRange {
     fn assert_len_in(&self, _r: RangeInclusive<usize>) -> Result<(), OperationError>;
 }
 
-impl<T> EnsureParametersCountInRange for Vec<T>{
+impl<T> EnsureParametersCountInRange for [T] {
     fn assert_empty(&self) -> Result<(), OperationError> {
         self.assert_len_in(0..=0)
     }

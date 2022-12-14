@@ -27,7 +27,7 @@ macro_rules! simple_commands {
         #[allow(non_snake_case)]
         pub fn $command(
             &mut self, 
-            par: &Vec<&str>, 
+            par: &[&str], 
             destination: &mut T,
             pos: DbgPos
         ) -> CompileResult {
@@ -41,7 +41,7 @@ macro_rules! simple_commands {
         #[allow(non_snake_case)]
         pub fn $command(
             &mut self, 
-            par: &Vec<&str>, 
+            par: &[&str], 
             destination: &mut T,
             pos: DbgPos
         ) -> CompileResult {

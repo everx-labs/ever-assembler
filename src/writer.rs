@@ -100,7 +100,7 @@ impl Writer for CodePage0 {
                 destination.dbg.inline_node(orig_offset, cursor.dbg);
             } else {
                 // otherwise just attach cursor to destination as a reference
-                destination.builder.append_reference_cell(slice.into_cell());
+                destination.builder.checked_append_reference(slice.into_cell()).unwrap();
                 destination.dbg.append_node(cursor.dbg);
             }
             cursor = destination;
