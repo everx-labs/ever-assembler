@@ -2,7 +2,7 @@
 build = 'build.rs'
 edition = '2021'
 name = 'ton_labs_assembler'
-version = '1.2.74'
+version = '1.2.75'
 
 [dependencies]
 failure = '0.1'
@@ -12,7 +12,7 @@ num = '0.4'
 num-traits = '0.2'
 serde_json = '1.0'
 serde = { features = [ 'derive' ], version = '1.0' }
-ton_types = { git = 'https://github.com/tonlabs/ton-labs-types.git', tag = '1.12.4' }
+ton_types = { git = 'https://github.com/tonlabs/ton-labs-types.git', tag = '1.12.5' }
 
 [features]
 gosh = [  ]
