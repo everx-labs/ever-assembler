@@ -11,7 +11,7 @@
 * limitations under the License.
 */
 
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, ser::SerializeMap, Deserialize, de::{Error, MapAccess, Visitor}};
 use std::collections::BTreeMap;
 use ton_types::{Cell, UInt256};
 
@@ -101,9 +101,65 @@ impl std::fmt::Display for DbgNode {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq)]
 pub struct DbgInfo {
     map: BTreeMap<[u8; 32], BTreeMap<usize, DbgPos>>
+}
+
+impl Serialize for DbgInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.map.len()))?;
+        for (k, v) in &self.map {
+            map.serialize_entry(&hex::encode(k), v)?
+        }
+        map.end()
+    }
+}
+
+struct DbgInfoVisitor {
+    marker: std::marker::PhantomData<fn() -> DbgInfo>
+}
+
+impl DbgInfoVisitor {
+    fn new() -> Self {
+        Self {
+            marker: std::marker::PhantomData
+        }
+    }
+}
+
+impl<'a> Visitor<'a> for DbgInfoVisitor {
+    type Value = DbgInfo;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a debug info map")
+    }
+
+    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+    where
+        M: MapAccess<'a>,
+    {
+        let mut map = BTreeMap::<[u8; 32], BTreeMap<usize, DbgPos>>::new();
+        while let Some((key, value)) = access.next_entry()? {
+            let v = hex::decode::<String>(key).map_err(M::Error::custom)?;
+            let arr: [u8; 32] = v.try_into()
+                .map_err(|ev: Vec<u8>| M::Error::custom(format!("bytestring size must be 32 not {}", ev.len())))?;
+            map.insert(arr, value);
+        }
+        Ok(DbgInfo { map })
+    }
+}
+
+impl<'a> Deserialize<'a> for DbgInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>
+    {
+        deserializer.deserialize_map(DbgInfoVisitor::new())
+    }
 }
 
 impl std::fmt::Debug for DbgInfo {
