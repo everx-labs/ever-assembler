@@ -840,19 +840,29 @@ impl<T: Writer> Engine<T> {
         DIFF_PATCH_BINARY_ZIPQ               => 0xC7, 0x25
     }
 
-    pub fn add_simple_commands(&mut self) {
+    #[cfg(feature = "groth")]
+    simple_commands! {
+        enumerate_groth_commands
+        VERGRTH16                            => 0xF9, 0x12
+    }
+
+    fn add_commands<'a>(&mut self, iter: impl IntoIterator<Item = &'a (&'static str, CompileHandler<T>)>) {
         // Add automatic commands
-        for (command, handler) in Self::enumerate_simple_commands() {
+        for (command, handler) in iter {
             if self.handlers.insert(command, *handler).is_some() {
                 panic!("Token {} was already registered.", command);
             }
         }
+    }
+
+    /// Add automatic commands
+    pub fn add_simple_commands(&mut self) {
+        self.add_commands(Self::enumerate_simple_commands());
 
         #[cfg(feature = "gosh")]
-        for (command, handler) in Self::enumerate_diff_commands() {
-            if self.handlers.insert(command, *handler).is_some() {
-                panic!("Token {} was already registered.", command);
-            }
-        }
+        self.add_commands(Self::enumerate_diff_commands());
+        
+        #[cfg(feature = "groth")]
+        self.add_commands(Self::enumerate_groth_commands());
     }
 }
