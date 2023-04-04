@@ -14,7 +14,7 @@
 use std::{error::Error, io::Write};
 
 use ton_labs_assembler::{compile_code_debuggable, Line, DbgPos, DbgInfo};
-use ton_types::{SliceData, serialize_toc};
+use ton_types::{SliceData};
 
 fn usage() {
     eprintln!("Usage: asm <code> [<boc> [<dbgmap>]]")
@@ -70,7 +70,7 @@ fn read(input: String) -> Result<Vec<Line>, Box<dyn Error>> {
 }
 
 fn write_boc(slice: SliceData, output: &str) -> Result<(), Box<dyn Error>> {
-    let bytes = serialize_toc(&slice.into_cell())?;
+    let bytes = ton_types::write_boc(&slice.into_cell())?;
     let mut file = std::fs::File::create(output)?;
     file.write_all(&bytes)?;
     Ok(())
