@@ -194,7 +194,10 @@ fn write_pushcont<T: Writer>(cont: BuilderData, dbg: DbgNode, destination: &mut 
     let mut dbg2 = DbgNode::from(pos);
     dbg2.inline_node(code.len() * 8, dbg);
     code.extend_from_slice(cont.data());
-    let refs = cont.references().iter().map(BuilderData::from).collect();
+    let mut refs = Vec::with_capacity(cont.references().len());
+    for r in cont.references() {
+        refs.push(BuilderData::from_cell(r).map_err(|_| OperationError::NotFitInSlice)?);
+    }
 
     destination.write_composite_command(&code, refs, dbg2)
 }

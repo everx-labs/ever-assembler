@@ -1,10 +1,7 @@
-# Changelog
+# Release Notes
 
 All notable changes to this project will be documented in this file.
 
-## Version: 1.2.57
+## Version 1.2.90
 
-### New
-
-
-
+- Supported ever-types version 2.0
