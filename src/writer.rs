@@ -11,45 +11,48 @@
 * limitations under the License.
 */
 
-use crate::OperationError;
+use crate::{OperationError, DbgInfo, CompileResult};
 use ton_types::{BuilderData, SliceData};
 
 use crate::debug::DbgNode;
 
-pub trait Writer : 'static {
-    fn new() -> Self;
-    fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError>;
-    fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError>;
-    fn write_composite_command(&mut self, code: &[u8], references: Vec<BuilderData>, dbg: DbgNode) -> Result<(), OperationError>;
-    fn finalize(self) -> (BuilderData, DbgNode);
-}
-
 #[derive(Clone, Default)]
-struct Unit {
+pub struct Unit {
     builder: BuilderData,
     dbg: DbgNode,
 }
 
 impl Unit {
-    fn new(builder: BuilderData, dbg: DbgNode) -> Self {
+    pub fn new(builder: BuilderData, dbg: DbgNode) -> Self {
         Self { builder, dbg }
+    }
+    pub fn finalize(&mut self) -> (SliceData, DbgInfo) {
+        let cell = self.builder.clone().into_cell().unwrap();
+        let slice = SliceData::load_cell_ref(&cell).unwrap();
+        let dbg_info = DbgInfo::from(cell, self.dbg.clone());
+        (slice, dbg_info)
     }
 }
 
-pub(crate) struct CodePage0 {
+pub struct Units {
     units: Vec<Unit>
 }
 
-impl Writer for CodePage0 {
+impl Units {
     /// Constructs new Writer
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { units: vec!(Unit::default()) }
     }
+    /// Writes assembled unit
+    pub fn write_unit(&mut self, unit: Unit) -> CompileResult {
+        self.units.push(unit);
+        Ok(())
+    }
     /// Writes simple command
-    fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> Result<(), OperationError> {
+    pub fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> CompileResult {
         self.write_command_bitstring(command, command.len() * 8, dbg)
     }
-    fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> Result<(), OperationError> {
+    pub fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> CompileResult {
         if let Some(last) = self.units.last_mut() {
             let orig_offset = last.builder.bits_used();
             if last.builder.append_raw(command, bits).is_ok() {
@@ -64,12 +67,12 @@ impl Writer for CodePage0 {
         Err(OperationError::NotFitInSlice)
     }
     /// Writes command with additional references
-    fn write_composite_command(
+    pub fn write_composite_command(
         &mut self,
         command: &[u8],
         references: Vec<BuilderData>,
         dbg: DbgNode,
-    ) -> Result<(), OperationError> {
+    ) -> CompileResult {
         assert_eq!(references.len(), dbg.children.len());
         if let Some(mut last) = self.units.last().cloned() {
             let orig_offset = last.builder.bits_used();
@@ -90,7 +93,7 @@ impl Writer for CodePage0 {
         Err(OperationError::NotFitInSlice)
     }
     /// Puts recorded cells in a linear sequence
-    fn finalize(mut self) -> (BuilderData, DbgNode) {
+    pub fn finalize(mut self) -> (BuilderData, DbgNode) {
         let mut cursor = self.units.pop().expect("cells can't be empty");
         while let Some(mut destination) = self.units.pop() {
             let orig_offset = destination.builder.bits_used();

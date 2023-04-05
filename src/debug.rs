@@ -169,7 +169,7 @@ impl std::fmt::Debug for DbgInfo {
 }
 
 impl DbgInfo {
-    pub fn from(cell: &Cell, node: &DbgNode) -> Self {
+    pub fn from(cell: Cell, node: DbgNode) -> Self {
         let mut info = DbgInfo { map: BTreeMap::new() };
         info.collect(cell, node);
         info
@@ -195,14 +195,19 @@ impl DbgInfo {
     pub fn first_entry(&self) -> Option<&BTreeMap<usize, DbgPos>> {
         self.map.iter().next().map(|k_v| k_v.1)
     }
-    fn collect(&mut self, cell: &Cell, dbg: &DbgNode) {
-        let hash = cell.repr_hash().inner();
-        // note existence of identical cells in a tree is normal
-        self.map.entry(hash).or_insert_with(|| dbg.offsets.clone());
-        for i in 0..cell.references_count() {
-            let child_cell = cell.reference(i).unwrap();
-            let child_dbg = dbg.children[i].clone();
-            self.collect(&child_cell, &child_dbg);
+    fn collect(&mut self, cell: Cell, dbg: DbgNode) {
+        let mut stack = vec!((cell.clone(), dbg));
+        while let Some((cell, mut dbg)) = stack.pop() {
+            let hash = cell.repr_hash().inner();
+            self.map.insert(hash, dbg.offsets);
+            for i in 0..cell.references_count() {
+                let child_cell = cell.reference(i).unwrap();
+                let child_hash = child_cell.repr_hash().inner();
+                if !self.map.contains_key(&child_hash) {
+                    let child_dbg = std::mem::take(&mut dbg.children[i]);
+                    stack.push((child_cell, child_dbg));
+                }
+            }
         }
     }
 }

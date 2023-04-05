@@ -13,18 +13,16 @@
 
 use crate::simple_commands;
 use super::{
-    CompileResult, CompileHandler, Engine, EnsureParametersCountInRange,
+    Units, CompileResult, CompileHandler, Engine, EnsureParametersCountInRange,
     errors::ToOperationParameterError,
     parse::*,
-    writer::Writer,
 };
 
 use crate::debug::{DbgNode, DbgPos};
 
 // Compilation engine *********************************************************
 
-#[rustfmt::skip]
-impl<T: Writer> Engine<T> {
+impl Engine {
 
     #[rustfmt::skip]
     simple_commands! {
@@ -846,7 +844,7 @@ impl<T: Writer> Engine<T> {
         VERGRTH16                            => 0xF9, 0x12
     }
 
-    fn add_commands<'a>(&mut self, iter: impl IntoIterator<Item = &'a (&'static str, CompileHandler<T>)>) {
+    fn add_commands<'a>(&mut self, iter: impl IntoIterator<Item = &'a (&'static str, CompileHandler)>) {
         // Add automatic commands
         for (command, handler) in iter {
             if self.handlers.insert(command, *handler).is_some() {

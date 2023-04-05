@@ -19,11 +19,10 @@ use super::errors::{
 };
 
 use super::{
-    CompileResult, Engine, EnsureParametersCountInRange,
+    Units, CompileResult, Engine, EnsureParametersCountInRange,
     convert::to_big_endian_octet_string,
     errors::ToOperationParameterError,
     parse::*,
-    writer::Writer,
 };
 use num::{BigInt, Num};
 use crate::debug::{DbgPos, DbgNode};
@@ -47,12 +46,12 @@ impl CommandBehaviourModifier for Quiet {
     }
 }
 
-fn compile_with_register<T: Writer>(
+fn compile_with_register(
     register: &str,
     symbol: char,
     range: Range<isize>,
     code: &[u8],
-    destination: &mut T,
+    destination: &mut Units,
     pos: DbgPos,
 ) -> CompileResult {
     let reg = parse_register(register, symbol, range).parameter("arg 0")? as u8;
@@ -61,12 +60,12 @@ fn compile_with_register<T: Writer>(
     destination.write_command(ret.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_with_any_register<T: Writer>(
+fn compile_with_any_register(
     register: &str,
     code_stack_short: &[u8],
     code_stack_long: &[u8],
     code_ctrls: &[u8],
-    destination: &mut T,
+    destination: &mut Units,
     pos: DbgPos,
 ) -> CompileResult {
     compile_with_register(register, 'S', 0..16, code_stack_short, destination, pos.clone()).or_else(
@@ -80,7 +79,7 @@ fn compile_with_any_register<T: Writer>(
     )
 }
 
-fn compile_call<T: Writer>(_engine: &mut Engine<T>,  par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_call(_engine: &mut Engine,  par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     let number = parse_const_u14(par[0]).parameter("Number")?;
     if number < 256 {
@@ -94,7 +93,7 @@ fn compile_call<T: Writer>(_engine: &mut Engine<T>,  par: &[&str], destination: 
     }
 }
 
-fn compile_ref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, command: &[u8], pos: DbgPos) -> CompileResult {
+fn compile_ref(engine: &mut Engine, par: &[&str], destination: &mut Units, command: &[u8], pos: DbgPos) -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         // the case of instruction form without an argument
         return destination.write_command(command, DbgNode::from(pos));
@@ -108,39 +107,39 @@ fn compile_ref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mu
     destination.write_composite_command(command, vec!(cont), dbg2)
 }
 
-fn compile_callref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_callref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xDB, 0x3C], pos)
 }
 
-fn compile_jmpref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_jmpref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xDB, 0x3D], pos)
 }
 
-fn compile_ifref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x00], pos)
 }
 
-fn compile_ifnotref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifnotref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x01], pos)
 }
 
-fn compile_ifjmpref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifjmpref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x02], pos)
 }
 
-fn compile_ifnotjmpref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifnotjmpref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x03], pos)
 }
 
-fn compile_ifrefelse<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifrefelse(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x0D], pos)
 }
 
-fn compile_ifelseref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifelseref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x0E], pos)
 }
 
-fn compile_ifrefelseref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_ifrefelseref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         // the case of instruction form without an argument
         return destination.write_command(&[0xE3, 0x0F], DbgNode::from(pos));
@@ -158,29 +157,29 @@ fn compile_ifrefelseref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destina
     destination.write_composite_command(&[0xE3, 0x0F], vec!(cont1, cont2), dbg)
 }
 
-fn compile_pushref<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pushref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0x88], pos)
 }
 
-fn compile_pushrefslice<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pushrefslice(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0x89], pos)
 }
 
-fn compile_pushrefcont<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pushrefcont(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0x8A], pos)
 }
 
-fn compile_pop<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pop(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     compile_with_any_register(par[0], &[0x30], &[0x57, 0x00], &[0xED, 0x50], destination, pos)
 }
 
-fn compile_push<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_push(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     compile_with_any_register(par[0],  &[0x20], &[0x56, 0x00], &[0xED, 0x40], destination, pos)
 }
 
-fn write_pushcont<T: Writer>(cont: BuilderData, dbg: DbgNode, destination: &mut T, pos: DbgPos) -> CompileResult {
+fn write_pushcont(cont: BuilderData, dbg: DbgNode, destination: &mut Units, pos: DbgPos) -> CompileResult {
     let r = cont.references_used() as u8;
     if r > 3 {
         return Err(OperationError::NotFitInSlice)
@@ -202,7 +201,7 @@ fn write_pushcont<T: Writer>(cont: BuilderData, dbg: DbgNode, destination: &mut 
     destination.write_composite_command(&code, refs, dbg2)
 }
 
-fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pushcont(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         return Err(OperationError::MissingBlock)
     }
@@ -243,7 +242,7 @@ fn compile_pushcont<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination
     }
 }
 
-fn compile_callxargs<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_callxargs(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(2)?;
     let pargs = parse_const_u4(par[0]).parameter("pargs")?;
     if par[1] == "-1" {
@@ -259,10 +258,10 @@ struct Div<M: CommandBehaviourModifier> (PhantomData<M>);
 macro_rules! div_variant {
     (@resolve $command:ident => $code: expr) => {
         impl<M: CommandBehaviourModifier> Div<M> {
-            pub fn $command<T: Writer>(
-                _engine: &mut Engine<T>,
+            pub fn $command(
+                _engine: &mut Engine,
                 par: &[&str],
-                destination: &mut T,
+                destination: &mut Units,
                 pos: DbgPos,
             ) -> CompileResult {
                 par.assert_len_in(0..=1)?;
@@ -319,7 +318,7 @@ div_variant!(
 );
 
 impl<M: CommandBehaviourModifier> Div<M> {
-    pub fn lshift<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+    pub fn lshift(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
         par.assert_len_in(0..=1)?;
         destination.write_command(
             &M::modify({
@@ -333,7 +332,7 @@ impl<M: CommandBehaviourModifier> Div<M> {
         )
     }
 
-    fn rshift<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+    fn rshift(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
         par.assert_len_in(0..=1)?;
         let command = if par.len() == 1 {
             vec![0xAB, parse_const_u8_plus_one(par[0]).parameter("value")?]
@@ -345,7 +344,7 @@ impl<M: CommandBehaviourModifier> Div<M> {
 
 }
 
-fn compile_setcontargs<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_setcontargs(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len_in(1..=2)?;
     let rargs = parse_const_u4(par[0]).parameter("register")?;
     let nargs = if par.len() == 2 {
@@ -357,7 +356,7 @@ fn compile_setcontargs<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destina
 }
 
 #[rustfmt::skip]
-fn compile_pushint<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_pushint(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     let (sub_str, radix) = if par[0].len() > 2 && (par[0][0..2].eq("0x") || par[0][0..2].eq("0X")) {
         (par[0][2..].to_string(), 16)
@@ -389,7 +388,7 @@ fn compile_pushint<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination
     }?.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_bchkbits<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_bchkbits(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     destination.write_command({
         if par.len() == 1 {
             Ok(vec![0xCF, 0x38, parse_const_u8_plus_one(par[0]).parameter("value")?])
@@ -399,7 +398,7 @@ fn compile_bchkbits<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destinatio
     }?.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_bchkbitsq<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_bchkbitsq(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     if par.len() == 1 {
         destination.write_command(
             vec![0xCF, 0x3C, parse_const_u8_plus_one(par[0]).parameter("value")?].as_slice(),
@@ -410,10 +409,10 @@ fn compile_bchkbitsq<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destinati
     }
 }
 
-fn compile_dumpstr<T: Writer>(
-    _engine: &mut Engine<T>,
+fn compile_dumpstr(
+    _engine: &mut Engine,
     par: &[&str],
-    destination: &mut T,
+    destination: &mut Units,
     mut buffer: Vec<u8>,
     max_len: usize,
     pos: DbgPos,
@@ -430,19 +429,19 @@ fn compile_dumpstr<T: Writer>(
     destination.write_command(buffer.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_dumptosfmt<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
-    compile_dumpstr::<T>(engine, par, destination, vec![0xFE, 0xF0], 16, pos)
+fn compile_dumptosfmt(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    compile_dumpstr(engine, par, destination, vec![0xFE, 0xF0], 16, pos)
 }
 
-fn compile_logstr<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
-    compile_dumpstr::<T>(engine, par, destination, vec![0xFE, 0xF0, 0x00], 15, pos)
+fn compile_logstr(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    compile_dumpstr(engine, par, destination, vec![0xFE, 0xF0, 0x00], 15, pos)
 }
 
-fn compile_printstr<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
-    compile_dumpstr::<T>(engine, par, destination, vec![0xFE, 0xF0, 0x01], 15, pos)
+fn compile_printstr(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    compile_dumpstr(engine, par, destination, vec![0xFE, 0xF0, 0x01], 15, pos)
 }
 
-fn compile_stsliceconst<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos) -> CompileResult {
+fn compile_stsliceconst(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     par.assert_len(1)?;
     if par[0] == "0" {
         destination.write_command(&[0xCF, 0x81], DbgNode::from(pos))
@@ -454,7 +453,7 @@ fn compile_stsliceconst<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destin
     }
 }
 
-fn compile_pushslice<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_pushslice(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len(1)?;
     let buffer = match compile_slice(par[0], vec![0x8B, 0], 8, 0, 4) {
@@ -464,7 +463,7 @@ fn compile_pushslice<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destinati
     destination.write_command(buffer.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_xchg<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_xchg(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len_in(0..=2)?;
     if par.is_empty() {
@@ -500,7 +499,7 @@ fn compile_xchg<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &
     }
 }
 
-fn compile_throw_helper<T: Writer>(par: &[&str], short_opcode: u8, long_opcode: u8, destination: &mut T, pos: DbgPos)
+fn compile_throw_helper(par: &[&str], short_opcode: u8, long_opcode: u8, destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len(1)?;
     let number = parse_const_u11(par[0]).parameter("Number")?;
@@ -542,7 +541,7 @@ pub(super) fn compile_slice(par: &str, mut prefix: Vec<u8>, offset: usize, r: us
     Ok(prefix)
 }
 
-fn compile_sdbegins<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_sdbegins(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len(1)?;
     // Regular version have special two aliaces: SDBEGINS '0', SDBEGINS '1'
@@ -556,29 +555,29 @@ fn compile_sdbegins<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destinatio
     }
 }
 
-fn compile_sdbeginsq<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_sdbeginsq(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len(1)?;
     let buffer = compile_slice(par[0], vec![0xD7, 0x2C], 14, 0, 7).parameter("arg 0")?;
     destination.write_command(buffer.as_slice(), DbgNode::from(pos))
 }
 
-fn compile_throw<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_throw(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     compile_throw_helper(par, 0x00, 0xC0, destination, pos)
 }
 
-fn compile_throwif<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_throwif(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     compile_throw_helper(par, 0x40, 0xD0, destination, pos)
 }
 
-fn compile_throwifnot<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_throwifnot(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     compile_throw_helper(par, 0x80, 0xE0, destination, pos)
 }
 
-fn compile_blob<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_blob(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     par.assert_len(1)?;
     let data = par[0];
@@ -593,7 +592,7 @@ fn compile_blob<T: Writer>(_engine: &mut Engine<T>, par: &[&str], destination: &
     destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))
 }
 
-fn compile_cell<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &mut T, pos: DbgPos)
+fn compile_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
 -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         return Err(OperationError::MissingBlock)
@@ -608,10 +607,20 @@ fn compile_cell<T: Writer>(engine: &mut Engine<T>, par: &[&str], destination: &m
     destination.write_composite_command(&[], vec!(cont), dbg2)
 }
 
+fn compile_inline(engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos)
+-> CompileResult {
+    par.assert_len(1)?;
+    let name = par[0];
+    if let Some(unit) = engine.named_units.get(name) {
+        destination.write_unit(unit.clone())
+    } else {
+        Err(ParameterError::UnexpectedType.parameter("parameter"))
+    }
+}
+
 // Compilation engine *********************************************************
 
-#[rustfmt::skip]
-impl<T: Writer> Engine<T> {
+impl Engine {
 
     #[rustfmt::skip]
     pub fn add_complex_commands(&mut self) {
@@ -720,5 +729,6 @@ impl<T: Writer> Engine<T> {
         // Pseudo instructions
         self.handlers.insert(".BLOB",          compile_blob);
         self.handlers.insert(".CELL",          compile_cell);
+        self.handlers.insert(".INLINE",        compile_inline);
     }
 }
