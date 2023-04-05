@@ -28,7 +28,7 @@ macro_rules! simple_commands {
         pub fn $command(
             &mut self, 
             par: &[&str], 
-            destination: &mut T,
+            destination: &mut Units,
             pos: DbgPos
         ) -> CompileResult {
             par.assert_empty()?;
@@ -42,7 +42,7 @@ macro_rules! simple_commands {
         pub fn $command(
             &mut self, 
             par: &[&str], 
-            destination: &mut T,
+            destination: &mut Units,
             pos: DbgPos
         ) -> CompileResult {
             let n_params = simple_commands!(@count $($pname = $parser;)*);
@@ -65,9 +65,9 @@ macro_rules! simple_commands {
         $(
             simple_commands!(@resolve $command $($pname = $parser);* => $($code),*);
         )*
-        pub fn $enumerate_commands() -> &'static [(&'static str, CompileHandler<T>)] {
+        pub fn $enumerate_commands() -> &'static [(&'static str, CompileHandler)] {
             &[
-                $( (stringify!($command), Engine::<T>::$command), )*
+                $( (stringify!($command), Engine::$command), )*
             ]
         }
     };

@@ -30,13 +30,13 @@ mod simple;
 mod convert;
 
 mod writer;
-use writer::{CodePage0, Writer};
+use writer::{Units, Unit};
 pub use debug::DbgPos;
 
 // Basic types *****************************************************************
 /// Operation Compilation result
 type CompileResult = Result<(), OperationError>;
-type CompileHandler<T> = fn(&mut Engine<T>, &[&str], destination:&mut T, pos: DbgPos) -> CompileResult;
+type CompileHandler = fn(&mut Engine, &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult;
 
 // CompileError::Operation handlers ***********************************************************
 trait EnsureParametersCountInRange {
@@ -67,19 +67,17 @@ impl<T> EnsureParametersCountInRange for [T] {
 
 // Command compilation context ************************************************
 
-struct CommandContext<T>
-where
-    T: Writer
+struct CommandContext
 {
     operation: String,
     line_no_cmd: usize,
     char_no_cmd: usize,
     line_no_par: usize,
     char_no_par: usize,
-    rule_option: Option<CompileHandler<T>>,
+    rule_option: Option<CompileHandler>,
 }
 
-impl<T: Writer> Default for CommandContext<T> {
+impl Default for CommandContext {
     fn default() -> Self {
         Self {
             operation: String::new(),
@@ -92,8 +90,8 @@ impl<T: Writer> Default for CommandContext<T> {
     }
 }
 
-impl<T: Writer> CommandContext<T> {
-    fn new(operation: String, char_no_cmd: usize, line_no_cmd: usize, rule_option: Option<CompileHandler<T>>) -> Self {
+impl CommandContext {
+    fn new(operation: String, char_no_cmd: usize, line_no_cmd: usize, rule_option: Option<CompileHandler>) -> Self {
         Self {
             operation,
             line_no_cmd,
@@ -103,7 +101,7 @@ impl<T: Writer> CommandContext<T> {
             rule_option,
         }
     }
-    fn abort<X>(&self, error: OperationError, engine: &Engine<T>) -> Result<X, CompileError> {
+    fn abort<X>(&self, error: OperationError, engine: &Engine) -> Result<X, CompileError> {
         if let Some(line) = engine.lines.get(self.line_no_cmd - 1) {
             let pos = &line.pos;
             let filename = pos.filename.clone();
@@ -118,9 +116,9 @@ impl<T: Writer> CommandContext<T> {
     }
     fn compile(
         &mut self,
-        destination: &mut T,
+        destination: &mut Units,
         par: &mut Vec<Token>,
-        engine: &mut Engine<T>,
+        engine: &mut Engine,
     ) -> Result<(), CompileError> {
         let rule = match self.rule_option.as_ref() {
             Some(rule) => rule,
@@ -189,11 +187,12 @@ impl<T: Writer> CommandContext<T> {
 // Compilation engine *********************************************************
 
 #[allow(non_snake_case)]
-pub struct Engine<T: Writer> {
+pub struct Engine {
     line_no: usize,
     char_no: usize,
     lines: Lines,
-    handlers: HashMap<&'static str, CompileHandler<T>>,
+    handlers: HashMap<&'static str, CompileHandler>,
+    named_units: HashMap<String, Unit>,
 }
 
 struct Token<'a> {
@@ -209,16 +208,14 @@ impl<'a> Token<'a> {
     }
 }
 
-#[rustfmt::skip]
-impl<T: Writer> Engine<T> {
-
-    #[rustfmt::skip]
-    pub fn new(lines: Lines) -> Engine<T> {
-        let mut ret = Engine::<T> {
+impl Engine {
+    pub fn new(lines: Lines) -> Self {
+        let mut ret = Self {
             line_no: 1,
             char_no: 1,
             lines,
             handlers: HashMap::new(),
+            named_units: HashMap::new(),
         };
         ret.add_complex_commands();
         ret.add_simple_commands();
@@ -235,8 +232,19 @@ impl<T: Writer> Engine<T> {
         (l, c)
     }
 
-    fn compile(&mut self, source: &str) -> Result<T, CompileError> {
-        let mut ret = T::new();
+    pub fn build(&mut self, name: Option<String>, lines: Lines) -> Result<Unit, CompileError> {
+        let source = lines_to_string(&lines);
+        self.lines = lines;
+        let (builder, dbg) = self.compile(&source)?.finalize();
+        let unit = Unit::new(builder, dbg);
+        if let Some(name) = name {
+            self.named_units.insert(name, unit.clone());
+        }
+        Ok(unit)
+    }
+
+    fn compile(&mut self, source: &str) -> Result<Units, CompileError> {
+        let mut ret = Units::new();
         let mut par = Vec::new();
         let mut acc = (0, 0);
         let mut expect_comma = false;
@@ -284,7 +292,7 @@ impl<T: Writer> Engine<T> {
                 continue;
             }
             // Analyze char
-            if Engine::<T>::is_whitespace(ch) {
+            if Engine::is_whitespace(ch) {
                 if (ch == '\r') || (ch == '\n') {
                     newline_found = true;
                     was_newline = true;
@@ -406,7 +414,7 @@ impl<T: Writer> Engine<T> {
 
 pub fn compile_code_to_builder(code: &str) -> Result<BuilderData, CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
-    Ok(Engine::<CodePage0>::new(vec![]).compile(code)?.finalize().0)
+    Ok(Engine::new(vec![]).compile(code)?.finalize().0)
 }
 
 pub fn compile_code(code: &str) -> Result<SliceData, CompileError> {
@@ -429,10 +437,10 @@ pub fn compile_code_to_cell(code: &str) -> Result<Cell, CompileError> {
 pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), CompileError> {
     log::trace!(target: "tvm", "begin compile\n");
     let source = lines_to_string(&code);
-    let (builder, dbg) = Engine::<CodePage0>::new(code).compile(&source)?.finalize();
+    let (builder, dbg) = Engine::new(code).compile(&source)?.finalize();
     match SliceData::load_builder(builder) {
         Ok(code) => {
-            let dbg_info = DbgInfo::from(code.cell(), &dbg);
+            let dbg_info = DbgInfo::from(code.cell().clone(), dbg);
             Ok((code, dbg_info))
         }
         Err(_) => Err(CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))
