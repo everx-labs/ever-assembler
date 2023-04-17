@@ -235,6 +235,8 @@ impl Engine {
     pub fn build(&mut self, name: Option<String>, lines: Lines) -> Result<Unit, CompileError> {
         let source = lines_to_string(&lines);
         self.lines = lines;
+        self.line_no = 1;
+        self.char_no = 1;
         let (builder, dbg) = self.compile(&source)?.finalize();
         let unit = Unit::new(builder, dbg);
         if let Some(name) = name {

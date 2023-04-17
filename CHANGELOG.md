@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.2.94
+
+### Fixed
+
+- Improved debug info building speed
+
 ## Version 1.2.92
 
 ### Added

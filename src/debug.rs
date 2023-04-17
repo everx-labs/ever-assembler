@@ -64,14 +64,14 @@ impl std::fmt::Display for DbgPos {
 
 #[derive(Clone, Default)]
 pub struct DbgNode {
-    pub offsets: BTreeMap<usize, DbgPos>,
+    pub offsets: Vec<(usize, DbgPos)>,
     pub children: Vec<DbgNode>,
 }
 
 impl DbgNode {
     pub fn from_ext(pos: DbgPos, dbgs: Vec<DbgNode>) -> Self {
         Self {
-            offsets: BTreeMap::from([(0, pos)]),
+            offsets: vec!((0, pos)),
             children: dbgs
         }
     }
@@ -79,8 +79,8 @@ impl DbgNode {
         Self::from_ext(pos, vec!())
     }
     pub fn inline_node(&mut self, offset: usize, dbg: DbgNode) {
-        for entry in dbg.offsets {
-            self.offsets.insert(entry.0 + offset, entry.1);
+        for (o, p) in dbg.offsets {
+            self.offsets.push((o + offset, p));
         }
         for child in dbg.children {
             self.append_node(child);
@@ -199,7 +199,9 @@ impl DbgInfo {
         let mut stack = vec!((cell.clone(), dbg));
         while let Some((cell, mut dbg)) = stack.pop() {
             let hash = cell.repr_hash().inner();
-            self.map.insert(hash, dbg.offsets);
+            let offsets_len = dbg.offsets.len();
+            self.map.insert(hash, dbg.offsets.into_iter().collect());
+            debug_assert_eq!(Some(offsets_len), self.map.get(&hash).map(|v| v.len()));
             for i in 0..cell.references_count() {
                 let child_cell = cell.reference(i).unwrap();
                 let child_hash = child_cell.repr_hash().inner();
