@@ -592,7 +592,7 @@ fn compile_blob(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos
     destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))
 }
 
-fn compile_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos)
+fn compile_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos)
 -> CompileResult {
     if engine.line_no == 0 && engine.char_no == 0 {
         return Err(OperationError::MissingBlock)
@@ -602,7 +602,7 @@ fn compile_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, pos:
         .compile(par[0])
         .map_err(|e| OperationError::Nested(Box::new(e)))?
         .finalize();
-    let mut dbg2 = DbgNode::from(pos);
+    let mut dbg2 = DbgNode::default();
     dbg2.append_node(dbg);
     destination.write_composite_command(&[], vec!(cont), dbg2)
 }

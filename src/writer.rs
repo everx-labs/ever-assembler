@@ -26,10 +26,10 @@ impl Unit {
     pub fn new(builder: BuilderData, dbg: DbgNode) -> Self {
         Self { builder, dbg }
     }
-    pub fn finalize(&mut self) -> (SliceData, DbgInfo) {
-        let cell = self.builder.clone().into_cell().unwrap();
+    pub fn finalize(self) -> (SliceData, DbgInfo) {
+        let cell = self.builder.into_cell().unwrap();
         let slice = SliceData::load_cell_ref(&cell).unwrap();
-        let dbg_info = DbgInfo::from(cell, self.dbg.clone());
+        let dbg_info = DbgInfo::from(cell, self.dbg);
         (slice, dbg_info)
     }
 }
@@ -39,7 +39,7 @@ pub struct Units {
 }
 
 impl Units {
-    /// Constructs new Writer
+    /// Constructor
     pub fn new() -> Self {
         Self { units: vec!(Unit::default()) }
     }
