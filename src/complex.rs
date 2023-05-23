@@ -618,6 +618,20 @@ fn compile_inline(engine: &mut Engine, par: &[&str], destination: &mut Units, _p
     }
 }
 
+fn compile_pseudo_ifjmp(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    if engine.line_no == 0 && engine.char_no == 0 {
+        return Err(OperationError::MissingBlock)
+    }
+    par.assert_len(1)?;
+    let mut dest_clone = destination.clone();
+    if compile_pushcont(engine, par, &mut dest_clone, pos.clone()).is_ok() &&
+        dest_clone.write_command_exactly(&[0xE0], 8, &DbgNode::from(pos.clone())).is_ok() { // 0xE0 = IF
+        *destination = dest_clone;
+        return Ok(())
+    }
+    compile_ifjmpref(engine, par, destination, pos)
+}
+
 // Compilation engine *********************************************************
 
 impl Engine {
@@ -730,5 +744,6 @@ impl Engine {
         self.handlers.insert(".BLOB",          compile_blob);
         self.handlers.insert(".CELL",          compile_cell);
         self.handlers.insert(".INLINE",        compile_inline);
+        self.handlers.insert(".IFJMP",         compile_pseudo_ifjmp);
     }
 }

@@ -34,6 +34,7 @@ impl Unit {
     }
 }
 
+#[derive(Clone, Default)]
 pub struct Units {
     units: Vec<Unit>
 }
@@ -52,13 +53,19 @@ impl Units {
     pub fn write_command(&mut self, command: &[u8], dbg: DbgNode) -> CompileResult {
         self.write_command_bitstring(command, command.len() * 8, dbg)
     }
-    pub fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> CompileResult {
+    pub fn write_command_exactly(&mut self, command: &[u8], bits: usize, dbg: &DbgNode) -> CompileResult {
         if let Some(last) = self.units.last_mut() {
             let orig_offset = last.builder.bits_used();
             if last.builder.append_raw(command, bits).is_ok() {
-                last.dbg.inline_node(orig_offset, dbg);
+                last.dbg.inline_node(orig_offset, dbg.clone());
                 return Ok(());
             }
+        }
+        Err(OperationError::NotFitInSlice)
+    }
+    pub fn write_command_bitstring(&mut self, command: &[u8], bits: usize, dbg: DbgNode) -> CompileResult {
+        if self.write_command_exactly(command, bits, &dbg).is_ok() {
+            return Ok(())
         }
         if let Ok(new_last) = BuilderData::with_raw(command, bits) {
             self.units.push(Unit::new(new_last, dbg));
