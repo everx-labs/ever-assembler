@@ -440,9 +440,10 @@ pub fn compile_code_debuggable(code: Lines) -> Result<(SliceData, DbgInfo), Comp
     log::trace!(target: "tvm", "begin compile\n");
     let source = lines_to_string(&code);
     let (builder, dbg) = Engine::new(code).compile(&source)?.finalize();
-    match SliceData::load_builder(builder) {
+    let cell = builder.into_cell().unwrap();
+    match SliceData::load_cell(cell.clone()) {
         Ok(code) => {
-            let dbg_info = DbgInfo::from(code.cell().clone(), dbg);
+            let dbg_info = DbgInfo::from(cell, dbg);
             Ok((code, dbg_info))
         }
         Err(_) => Err(CompileError::unknown(0, 0, "failure while convert BuilderData to cell"))
