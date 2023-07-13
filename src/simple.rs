@@ -268,6 +268,7 @@ impl Engine {
         FITS z = parse_const_u8_plus_one     => 0xB4, z
         FITSX                                => 0xB6, 0x00
         GASTOGRAM                            => 0xF8, 0x05
+        GASREMAINING                         => 0xF8, 0x06
         GEQ                                  => 0xBE
         GETGLOBVAR                           => 0xF8, 0x40
         GETGLOB k = parse_const_u5           => 0xF8, 0x40 | k
@@ -759,6 +760,7 @@ impl Engine {
         TRYARGS s1 = parse_const_u4;
                 s2 = parse_const_u4          => 0xF3, (s1 << 4 | s2)
         TRYELECT                             => 0xF9, 0x50
+        TRYKEEP                              => 0xF2, 0xFE
         TUCK                                 => 0x66
         TUPLE s = parse_const_u4             => 0x6F, s
         TUPLEVAR                             => 0x6F, 0x80
