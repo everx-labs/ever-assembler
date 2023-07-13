@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.2.121
+
+- Added GASREMAINING, TRYKEEP insns
+
 ## Version 1.2.117
 
 - Minor fix for support changes in types
