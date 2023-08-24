@@ -26,13 +26,7 @@ impl Line {
     pub fn new(text: &str, filename: &str, line: usize) -> Self {
         Line {
             text: String::from(text),
-            pos: DbgPos { filename: String::from(filename), line, line_code: line }
-        }
-    }
-    pub fn new_extended(text: &str, filename: &str, line: usize, line_code: usize) -> Self {
-        Line {
-            text: String::from(text),
-            pos: DbgPos { filename: String::from(filename), line, line_code }
+            pos: DbgPos { filename: String::from(filename), line }
         }
     }
 }
@@ -47,8 +41,6 @@ pub fn lines_to_string(lines: &Lines) -> String {
 pub struct DbgPos {
     pub filename: String,
     pub line: usize,
-    #[serde(skip)]
-    pub line_code: usize,
 }
 
 impl std::fmt::Display for DbgPos {
@@ -62,7 +54,7 @@ impl std::fmt::Display for DbgPos {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DbgNode {
     pub offsets: Vec<(usize, DbgPos)>,
     pub children: Vec<DbgNode>,
@@ -203,6 +195,9 @@ impl DbgInfo {
             self.map.insert(hash, dbg.offsets.into_iter().collect());
             debug_assert_eq!(Some(offsets_len), self.map.get(&hash).map(|v| v.len()));
             for i in 0..cell.references_count() {
+                if i >= dbg.children.len() {
+                    continue
+                }
                 let child_cell = cell.reference(i).unwrap();
                 let child_hash = child_cell.repr_hash().inner();
                 if !self.map.contains_key(&child_hash) {

@@ -11,14 +11,10 @@
 * limitations under the License.
 */
 
-use num::{
-    Num,
-};
-use std::cmp::PartialOrd;
-use std::ops::Bound;
-use std::ops::{
-    Range,
-    RangeBounds,
+use num::Num;
+use std::{
+    cmp::PartialOrd,
+    ops::{Bound, Range, RangeBounds}
 };
 use super::errors::ParameterError;
 
@@ -74,11 +70,11 @@ pub(super) fn parse_const_u4(par: &str) -> Result<u8, ParameterError> {
 }
 
 pub(super) fn parse_const_u4_plus_one(par: &str) -> Result<u8, ParameterError> {
-    parse_range(1u8..=16)(par).map(|e| (e - 1) as u8)
+    parse_range(1u8..=16)(par).map(|e| e - 1)
 }
 
 pub(super) fn parse_const_u4_plus_two(par: &str) -> Result<u8, ParameterError> {
-    parse_range(2u8..=17)(par).map(|e| (e - 2) as u8)
+    parse_range(2u8..=17)(par).map(|e| e - 2)
 }
 
 pub(super) fn parse_const_u4_14(par: &str) -> Result<u8, ParameterError> {
