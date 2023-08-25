@@ -38,6 +38,12 @@ pub struct Units {
     units: Vec<Unit>
 }
 
+impl Default for Units {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Units {
     /// Constructor
     pub fn new() -> Self {
