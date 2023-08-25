@@ -11,66 +11,63 @@
  * limitations under the License.
  */
 
-use std::{error::Error, io::Write};
+use std::{error::Error, io::Write, process::ExitCode};
 
-use ton_labs_assembler::{compile_code_debuggable, Line, DbgPos, DbgInfo};
-use ton_types::{SliceData};
+use clap::Parser;
 
-fn usage() {
-    eprintln!("Usage: asm <code> [<boc> [<dbgmap>]]")
+use ton_labs_assembler::{DbgInfo, Engine, Units};
+use ton_types::Cell;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Input assembly sources
+    #[arg(required = true)]
+    inputs: Vec<String>,
+    /// Output boc filename ("output.boc" by default)
+    #[arg(short, long)]
+    boc: Option<String>,
+    /// Output debug map filename ("output.debug.json" by default)
+    #[arg(short, long)]
+    dbg: Option<String>,
 }
 
-fn main() {
-    let mut args = std::env::args();
-    args.next(); // skip executable name
-    let input = args.next().unwrap_or_else(|| {
-        usage();
-        std::process::exit(1)
-    });
-    let prefix = input.strip_suffix(".code").unwrap_or(&input);
-    let output = args.next().unwrap_or_else(|| format!("{}.boc", prefix));
-    let dbgmap = args.next().unwrap_or_else(|| format!("{}.dbg.json", prefix));
-    if args.next().is_some() {
-        usage();
-        std::process::exit(2)
+fn main() -> ExitCode {
+    if let Err(e) = main_impl() {
+        eprintln!("{}", e);
+        ExitCode::from(1)
+    } else {
+        ExitCode::from(0)
     }
-    let lines = read(input).unwrap_or_else(|e| {
-        eprintln!("{}", e);
-        std::process::exit(3)
-    });
-    let (slice, dbg) = compile_code_debuggable(lines).unwrap_or_else(|e| {
-        eprintln!("{}", e);
-        std::process::exit(4)
-    });
-    write_boc(slice, &output).unwrap_or_else(|e| {
-        eprintln!("{}", e);
-        std::process::exit(5)
-    });
-    println!("wrote boc to {}", output);
-    write_dbg(dbg, &dbgmap).unwrap_or_else(|e| {
-        eprintln!("{}", e);
-        std::process::exit(6)
-    });
-    println!("wrote dbg to {}", dbgmap);
 }
 
-fn read(input: String) -> Result<Vec<Line>, Box<dyn Error>> {
-    let mut lines = vec!();
-    for (lineno, line) in std::fs::read_to_string(input.clone())?.lines().enumerate() {
-        lines.push(Line {
-            text: format!("{}\n", line),
-            pos: DbgPos {
-                filename: input.clone(),
-                line: lineno,
-                line_code: 0
-            }
-        })
+fn main_impl() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+    let output = args.boc.unwrap_or("output.boc".to_string());
+    let dbgmap = args.dbg.unwrap_or("output.debug.json".to_string());
+
+    let mut engine = Engine::new("");
+
+    let mut units = Units::new();
+    for input in args.inputs {
+        let code = std::fs::read_to_string(input.clone())?;
+        engine.reset(input);
+        units = engine.compile_toplevel(&code)
+            .map_err(|e| e.to_string())?;
     }
-    Ok(lines)
+    let (b, d) = units.finalize();
+
+    let c = b.into_cell()?;
+    write_boc(&c, &output)?;
+
+    let dbg = DbgInfo::from(c, d);
+    write_dbg(dbg, &dbgmap)?;
+
+    Ok(())
 }
 
-fn write_boc(slice: SliceData, output: &str) -> Result<(), Box<dyn Error>> {
-    let bytes = ton_types::write_boc(&slice.into_cell())?;
+fn write_boc(cell: &Cell, output: &str) -> Result<(), Box<dyn Error>> {
+    let bytes = ton_types::write_boc(cell)?;
     let mut file = std::fs::File::create(output)?;
     file.write_all(&bytes)?;
     Ok(())

@@ -46,6 +46,12 @@ pub enum OperationError {
     MissingBlock,
     Nested(Box<CompileError>),
     NotFitInSlice,
+    CellComputeError,
+    CellComputeNotACell,
+    CellComputeInternal,
+    FragmentIsAlreadyDefined(String),
+    FragmentIsNotDefined(String),
+    CodeDictConstruction,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -158,28 +164,34 @@ impl fmt::Display for OperationError {
                 if line.is_empty() { break; }
                 indented += "  ";
                 indented += line;
-                indented += "\n";
             }
             indented
         }
+        use OperationError::*;
         match self {
-            OperationError::Parameter(name, error) => write!(
+            Parameter(name, error) => write!(
                 f,
                 "Operation parameter {} has the following problem: {}",
                 name, error
             ),
-            OperationError::TooManyParameters => write!(f, "Operation has too many parameters."),
-            OperationError::LogicErrorInParameters(ref error) => write!(f,
+            TooManyParameters => write!(f, "Operation has too many parameters."),
+            LogicErrorInParameters(ref error) => write!(f,
                 "Logic error {}", error
             ),
-            OperationError::MissingRequiredParameters => {
+            MissingRequiredParameters => {
                 write!(f, "Operation requires more parameters.")
             }
-            OperationError::MissingBlock => {
+            MissingBlock => {
                 write!(f, "Operation requires block in {{}} braces.")
             }
-            OperationError::Nested(error) => write!(f, "\n{}", indent(error.to_string())),
-            OperationError::NotFitInSlice => write!(f, "Command bytecode is too long for single slice"),
+            Nested(error) => write!(f, "\n{}", indent(error.to_string())),
+            NotFitInSlice => write!(f, "Command bytecode is too long for single slice"),
+            CellComputeError => write!(f, "Cell computation results in an error or non-zero exit code"),
+            CellComputeNotACell => write!(f, "Top of the stack is not a cell"),
+            CellComputeInternal => write!(f, "Failed to compute the cell"),
+            FragmentIsAlreadyDefined(name) => write!(f, "Fragment {} is already defined", name),
+            FragmentIsNotDefined(name) => write!(f, "Fragment {} is not defined", name),
+            CodeDictConstruction => write!(f, "Failed to construct code dictionary"),
         }
     }
 }

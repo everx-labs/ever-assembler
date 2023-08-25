@@ -11,21 +11,26 @@
 * limitations under the License.
 */
 
+use std::collections::{BTreeMap, HashMap};
 use std::{marker::PhantomData, ops::Range};
-use ton_types::{SliceData, BuilderData};
+use ton_types::{BuilderData, Cell, HashmapE, HashmapType, SliceData, Status};
+use failure::format_err;
 
 use super::errors::{
     OperationError, ParameterError,
 };
 
 use super::{
-    Units, CompileResult, Engine, EnsureParametersCountInRange,
+    Unit, Units, CompileResult, Engine, EnsureParametersCountInRange,
     convert::to_big_endian_octet_string,
     errors::ToOperationParameterError,
     parse::*,
 };
-use num::{BigInt, Num};
-use crate::debug::{DbgPos, DbgNode};
+use num::{BigInt, Num, Integer};
+use crate::{
+    DbgInfo,
+    debug::{DbgPos, DbgNode}
+};
 
 trait CommandBehaviourModifier {
     fn modify(code: Vec<u8>) -> Vec<u8>;
@@ -481,20 +486,20 @@ fn compile_xchg(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos
         } else if reg1 == 0 {
             if reg2 <= 15 {
                 // XCHG s0, si == XCHG si
-                destination.write_command(&[reg2 as u8], DbgNode::from(pos))
+                destination.write_command(&[reg2], DbgNode::from(pos))
             } else {
-                destination.write_command(&[0x11, reg2 as u8], DbgNode::from(pos))
+                destination.write_command(&[0x11, reg2], DbgNode::from(pos))
             }
         } else if reg1 == 1 {
             if (2..=15).contains(&reg2) {
-                destination.write_command(&[0x10 | reg2 as u8], DbgNode::from(pos))
+                destination.write_command(&[0x10 | reg2], DbgNode::from(pos))
             } else {
                 Err(ParameterError::OutOfRange.parameter("Register 2"))
             }
         } else if reg2 > 15 {
             Err(ParameterError::OutOfRange.parameter("Register 2"))
         } else {
-            destination.write_command(&[0x10, (((reg1 << 4) & 0xF0) | (reg2 & 0x0F)) as u8], DbgNode::from(pos))
+            destination.write_command(&[0x10, ((reg1 << 4) & 0xF0) | (reg2 & 0x0F)], DbgNode::from(pos))
         }
     }
 }
@@ -506,7 +511,7 @@ fn compile_throw_helper(par: &[&str], short_opcode: u8, long_opcode: u8, destina
     destination.write_command({
         if number < 64 {
             let number = number as u8;
-            Ok(vec![0xF2, (short_opcode | number) as u8])
+            Ok(vec![0xF2, short_opcode | number])
         } else if number < 2048 {
             let hi = long_opcode | ((number / 256) as u8);
             let lo = (number % 256) as u8;
@@ -584,11 +589,8 @@ fn compile_blob(_engine: &mut Engine, par: &[&str], destination: &mut Units, pos
     if !data.to_ascii_lowercase().starts_with('x') {
         return Err(ParameterError::UnexpectedType.parameter("parameter"))
     }
-    let res = SliceData::from_string(&data[1..]);
-    if res.is_err() {
-        return Err(ParameterError::UnexpectedType.parameter("parameter"))
-    }
-    let slice = res.unwrap();
+    let slice = SliceData::from_string(&data[1..])
+        .map_err(|_| ParameterError::UnexpectedType.parameter("parameter"))?;
     destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))
 }
 
@@ -614,8 +616,199 @@ fn compile_inline(engine: &mut Engine, par: &[&str], destination: &mut Units, _p
     if let Some(unit) = engine.named_units.get(name) {
         destination.write_unit(unit.clone())
     } else {
-        Err(ParameterError::UnexpectedType.parameter("parameter"))
+        Err(OperationError::FragmentIsNotDefined(name.to_string()))
     }
+}
+
+fn compile_code_dict_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos) -> CompileResult {
+    par.assert_len(2)?;
+    let dict_key_bitlen = par[0].parse::<usize>()
+        .map_err(|_| OperationError::CodeDictConstruction)?;
+    let tokens = par[1]
+        .split(&[' ', '\t', '\n', ',', '='])
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>();
+    if tokens.len().is_odd() {
+        return Err(OperationError::CodeDictConstruction)
+    }
+
+    let mut map = HashMap::new();
+    let mut dict = HashmapE::with_bit_len(dict_key_bitlen);
+    let mut info = DbgInfo::default();
+    for pair in tokens.chunks(2) {
+        // parse the key
+        let key = pair[0];
+        if !key.to_ascii_lowercase().starts_with('x') {
+            return Err(OperationError::CodeDictConstruction)
+        }
+        let key_slice = SliceData::from_string(&key[1..])
+            .map_err(|_| ParameterError::UnexpectedType.parameter("key"))?;
+        if key_slice.remaining_bits() != dict_key_bitlen {
+            return Err(OperationError::CodeDictConstruction)
+        }
+
+        // get an assembled fragment by the name
+        let name = pair[1];
+        let (value_slice, mut value_dbg) = engine.named_units.get(name)
+            .ok_or(OperationError::CodeDictConstruction)?
+            .clone()
+            .finalize();
+
+        // try setting value slice as is, otherwise set as a cell
+        if dict.set(key_slice.clone(), &value_slice.clone()).is_ok() {
+            map.insert(key_slice.clone(), (value_dbg, value_slice.clone()));
+        } else {
+            let value_cell = value_slice.clone().into_cell();
+            info.append(&mut value_dbg);
+            dict.setref(key_slice.clone(), &value_cell)
+                .map_err(|_| OperationError::CodeDictConstruction)?;
+        }
+    }
+
+    // update debug info
+    for (key, (mut value_dbg, value_slice)) in map {
+        let value_slice_after = dict.get(key)
+            .map_err(|_| OperationError::CodeDictConstruction)?
+            .ok_or(OperationError::CodeDictConstruction)?;
+        adjust_debug_map(&mut value_dbg, value_slice, value_slice_after)
+            .map_err(|_| OperationError::CodeDictConstruction)?;
+        info.append(&mut value_dbg);
+    }
+
+    let dict_cell = dict.data().cloned().unwrap_or_default();
+    let b = BuilderData::from_cell(&dict_cell)
+        .map_err(|_| ParameterError::UnexpectedType.parameter("parameter"))?;
+
+    let mut dbg = DbgNode::default();
+    dbg.append_node(make_dbgnode(dict_cell, info));
+
+    destination.write_composite_command(&[], vec!(b), dbg)
+}
+
+fn adjust_debug_map(map: &mut DbgInfo, before: SliceData, after: SliceData) -> Status {
+    let hash_before = before.cell().repr_hash();
+    let hash_after = after.cell().repr_hash();
+    let entry_before = map.remove(&hash_before)
+        .ok_or_else(|| format_err!("Failed to remove old value."))?;
+
+    let adjustment = after.pos();
+    let mut entry_after = BTreeMap::new();
+    for (k, v) in entry_before {
+        entry_after.insert(k + adjustment, v);
+    }
+
+    map.insert(hash_after, entry_after);
+    Ok(())
+}
+
+struct DbgNodeMaker {
+    info: DbgInfo,
+}
+
+impl DbgNodeMaker {
+    fn new(info: DbgInfo) -> Self {
+        Self { info }
+    }
+    fn make(&self, cell: Cell) -> DbgNode {
+        let mut node = DbgNode::default();
+        if let Some(map) = self.info.get(&cell.repr_hash()) {
+            for (offset, pos) in map {
+                node.offsets.push((*offset, pos.clone()))
+            }
+        }
+        for r in 0..cell.references_count() {
+            let child = cell.reference(r).unwrap();
+            let child_node = self.make(child);
+            node.append_node(child_node);
+        }
+        node
+    }
+}
+
+fn make_dbgnode(cell: Cell, dbginfo: DbgInfo) -> DbgNode {
+    let maker = DbgNodeMaker::new(dbginfo);
+    maker.make(cell)
+}
+
+fn compile_inline_computed_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    par.assert_len(2)?;
+    
+    let name = par[0];
+    let (code, mut _value_dbg) = engine.named_units.get(name)
+        .ok_or(OperationError::FragmentIsNotDefined(name.to_string()))?
+        .clone()
+        .finalize();
+
+    let param2 = par[1];
+    let capabilities = if param2.to_ascii_lowercase().starts_with("0x") {
+        u64::from_str_radix(&param2[2..], 16)
+            .map_err(|_| ParameterError::NotSupported.parameter("capabilities"))?
+    } else {
+        par[1].parse::<u64>()
+            .map_err(|_| ParameterError::NotSupported.parameter("capabilities"))?
+    };
+
+    // initialize and run vm
+    let mut vm = ton_vm::executor::Engine::with_capabilities(capabilities).setup_with_libraries(
+        code, None, None, None, vec![]);
+    match vm.execute() {
+        Err(_e) => {
+            return Err(OperationError::CellComputeError)
+        }
+        Ok(code) => {
+            if code != 0 {
+                return Err(OperationError::CellComputeError)
+            }
+        }
+    };
+
+    // get a cell from the top of the stack
+    let cell = vm.stack().get(0).as_cell()
+        .map_err(|_| OperationError::CellComputeNotACell)?;
+
+    // pull refs and data from the cell separately
+    let mut refs = Vec::new();
+    for r in 0..cell.references_count() {
+        let c = cell.reference(r)
+            .map_err(|_| OperationError::CellComputeInternal)?;
+        let b = BuilderData::from_cell(&c)
+            .map_err(|_| OperationError::CellComputeInternal)?;
+        refs.push(b);
+    }
+    let slice = SliceData::load_cell_ref(cell)
+        .map_err(|_| OperationError::CellComputeInternal)?;
+
+    // write the cell's data and refs
+    destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))?;
+    destination.write_composite_command(&[], refs, DbgNode::default())
+}
+
+fn compile_fragment(engine: &mut Engine, par: &[&str], _destination: &mut Units, _pos: DbgPos) -> CompileResult {
+    par.assert_len(2)?;
+    let name = par[0];
+    let (builder, dbg) = engine
+        .compile(par[1])
+        .map_err(|e| OperationError::Nested(Box::new(e)))?
+        .finalize();
+    let unit = Unit::new(builder, dbg);
+    if engine.named_units.insert(name.to_string(), unit).is_some() {
+        return Err(OperationError::FragmentIsAlreadyDefined(name.to_string()))
+    }
+    engine.dbgpos = None;
+    Ok(())
+}
+
+fn compile_loc(engine: &mut Engine, par: &[&str], _destination: &mut Units, _pos: DbgPos) -> CompileResult {
+    par.assert_len(2)?;
+    let filename = par[0];
+    let line = par[1].parse::<usize>()
+        .map_err(|_| ParameterError::NotSupported.parameter("line number"))?;
+    if line == 0 {
+        engine.dbgpos = None;
+    } else {
+        engine.dbgpos = Some(DbgPos { filename: filename.to_string(), line });
+    }
+    Ok(())
 }
 
 // Compilation engine *********************************************************
@@ -730,5 +923,10 @@ impl Engine {
         self.handlers.insert(".BLOB",          compile_blob);
         self.handlers.insert(".CELL",          compile_cell);
         self.handlers.insert(".INLINE",        compile_inline);
+
+        self.handlers.insert(".CODE-DICT-CELL",       compile_code_dict_cell);
+        self.handlers.insert(".INLINE-COMPUTED-CELL", compile_inline_computed_cell);
+        self.handlers.insert(".FRAGMENT",             compile_fragment);
+        self.handlers.insert(".LOC",                  compile_loc);
     }
 }
