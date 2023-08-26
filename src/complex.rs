@@ -726,13 +726,12 @@ impl DbgNodeMaker {
 }
 
 fn make_dbgnode(cell: Cell, dbginfo: DbgInfo) -> DbgNode {
-    let maker = DbgNodeMaker::new(dbginfo);
-    maker.make(cell)
+    DbgNodeMaker::new(dbginfo).make(cell)
 }
 
-fn compile_inline_computed_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+fn compile_inline_computed_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos) -> CompileResult {
     par.assert_len(2)?;
-    
+
     let name = par[0];
     let (code, mut _value_dbg) = engine.named_units.get(name)
         .ok_or(OperationError::FragmentIsNotDefined(name.to_string()))?
@@ -777,10 +776,11 @@ fn compile_inline_computed_cell(engine: &mut Engine, par: &[&str], destination: 
     }
     let slice = SliceData::load_cell_ref(cell)
         .map_err(|_| OperationError::CellComputeInternal)?;
+    let dbg_node = make_dbgnode(cell.clone(), DbgInfo::default());
 
     // write the cell's data and refs
-    destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::from(pos))?;
-    destination.write_composite_command(&[], refs, DbgNode::default())
+    destination.write_command_bitstring(slice.storage(), slice.remaining_bits(), DbgNode::default())?;
+    destination.write_composite_command(&[], refs, dbg_node)
 }
 
 fn compile_fragment(engine: &mut Engine, par: &[&str], _destination: &mut Units, _pos: DbgPos) -> CompileResult {
