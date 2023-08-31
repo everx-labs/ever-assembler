@@ -33,6 +33,8 @@ mod writer;
 pub use writer::{Units, Unit};
 pub use debug::DbgPos;
 
+pub mod disasm;
+
 // Basic types *****************************************************************
 /// Operation Compilation result
 type CompileResult = Result<(), OperationError>;
