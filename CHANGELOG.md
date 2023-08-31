@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.4.0
+
+- Added disassembler
+
 ## Version 1.3.1
 
 - Fix dbg node for computed cell
