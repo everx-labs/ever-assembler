@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.4.12
+
+- Added .library-cell directive
+
 ## Version 1.4.0
 
 - Added disassembler

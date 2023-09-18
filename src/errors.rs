@@ -52,6 +52,13 @@ pub enum OperationError {
     FragmentIsAlreadyDefined(String),
     FragmentIsNotDefined(String),
     CodeDictConstruction,
+    Internal(String),
+}
+
+impl From<failure::Error> for OperationError {
+    fn from(e: failure::Error) -> Self {
+        Self::Internal(e.to_string())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -192,6 +199,7 @@ impl fmt::Display for OperationError {
             FragmentIsAlreadyDefined(name) => write!(f, "Fragment {} is already defined", name),
             FragmentIsNotDefined(name) => write!(f, "Fragment {} is not defined", name),
             CodeDictConstruction => write!(f, "Failed to construct code dictionary"),
+            Internal(message) => write!(f, "{}", message),
         }
     }
 }

@@ -398,7 +398,7 @@ fn compile_bchkbits(_engine: &mut Engine, par: &[&str], destination: &mut Units,
         if par.len() == 1 {
             Ok(vec![0xCF, 0x38, parse_const_u8_plus_one(par[0]).parameter("value")?])
         } else {
-            Ok(vec![0xCF, 0x39])
+            Ok::<Vec<u8>, OperationError>(vec![0xCF, 0x39])
         }
     }?.as_slice(), DbgNode::from(pos))
 }
@@ -811,6 +811,21 @@ fn compile_loc(engine: &mut Engine, par: &[&str], _destination: &mut Units, _pos
     Ok(())
 }
 
+fn compile_library_cell(_engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos) -> CompileResult {
+    par.assert_len(1)?;
+
+    let hash = hex::decode(par[0])
+        .map_err(|e| OperationError::Internal(e.to_string()))?;
+
+    let mut b = BuilderData::with_raw(vec!(0x02), 8)?;
+    b.append_raw(hash.as_slice(), 256)?;
+    b.set_type(ton_types::CellType::LibraryReference);
+
+    let mut dbg = DbgNode::default();
+    dbg.append_node(DbgNode::default());
+    destination.write_composite_command(&[], vec!(b), dbg)
+}
+
 // Compilation engine *********************************************************
 
 impl Engine {
@@ -923,6 +938,7 @@ impl Engine {
         self.handlers.insert(".BLOB",          compile_blob);
         self.handlers.insert(".CELL",          compile_cell);
         self.handlers.insert(".INLINE",        compile_inline);
+        self.handlers.insert(".LIBRARY-CELL",  compile_library_cell);
 
         self.handlers.insert(".CODE-DICT-CELL",       compile_code_dict_cell);
         self.handlers.insert(".INLINE-COMPUTED-CELL", compile_inline_computed_cell);
