@@ -11,6 +11,10 @@
 * limitations under the License.
 */
 
+#[cfg(test)]
+#[path = "tests/test_convert.rs"]
+mod tests;
+
 use num::{bigint::Sign, BigInt};
 
 #[inline]

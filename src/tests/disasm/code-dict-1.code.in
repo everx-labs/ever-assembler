@@ -1,0 +1,11 @@
+.fragment foo, {
+    PUSHINT 0
+    PUSHINT 1
+    ADD
+}
+DICTPUSHCONST 32
+DICTUGETJMPZ
+.code-dict-cell 32, {
+    x00000007 = foo,
+}
+THROW 78
