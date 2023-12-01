@@ -18,8 +18,6 @@ pub mod codedict;
 mod handlers;
 pub mod loader;
 pub mod fmt;
-#[cfg(test)]
-mod tests;
 pub mod types;
 
 pub fn disasm(slice: &mut SliceData) -> Result<String> {

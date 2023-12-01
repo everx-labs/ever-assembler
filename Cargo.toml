@@ -16,9 +16,6 @@ serde = { features = [ 'derive' ], version = '1.0' }
 ton_types = { git = 'https://github.com/tonlabs/ever-types.git', tag = '2.0.31' }
 ton_vm = { git = 'https://github.com/tonlabs/ever-vm.git', tag = '1.8.226' }
 
-[dev-dependencies]
-similar = '2.2.0'
-
 [features]
 gosh = [  ]
 groth = [  ]
