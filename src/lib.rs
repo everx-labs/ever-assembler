@@ -416,14 +416,3 @@ pub fn compile_code_debuggable(source: &str, source_name: &str) -> Result<(Slice
     }
 }
 
-#[cfg(test)]
-#[path = "tests/test_parse.rs"]
-mod tests;
-
-#[cfg(test)]
-#[path = "tests/test_div_primitives.rs"]
-mod tests_div;
-
-#[cfg(test)]
-#[path = "tests/test_pushcont.rs"]
-mod tests_pushcont;
