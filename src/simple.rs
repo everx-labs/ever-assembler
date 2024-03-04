@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
+* Copyright (C) 2019-2024 EverX. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -72,6 +72,7 @@ impl Engine {
         BREMBITS                             => 0xCF, 0x35
         BREMBITREFS                          => 0xCF, 0x37
         BREMREFS                             => 0xCF, 0x36
+        BURN                                 => 0xFB, 0x09
         BUYGAS                               => 0xF8, 0x02
         CADR                                 => 0x6F, 0xB4
         CADDR                                => 0x6F, 0xD4
