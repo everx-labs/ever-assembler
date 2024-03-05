@@ -2,7 +2,7 @@
 build = 'build.rs'
 edition = '2021'
 name = 'ton_labs_assembler'
-version = '1.4.42'
+version = '1.4.43'
 
 [dependencies]
 clap = { features = [ 'derive' ], version = '4.3' }
@@ -13,8 +13,8 @@ num = '0.4'
 num-traits = '0.2'
 serde = { features = [ 'derive' ], version = '1.0' }
 serde_json = '1.0'
-ton_types = { git = 'https://github.com/tonlabs/ever-types.git', tag = '2.0.32' }
-ton_vm = { git = 'https://github.com/tonlabs/ever-vm.git', tag = '1.9.8' }
+ton_types = { git = 'https://github.com/tonlabs/ever-types.git', tag = '2.0.33' }
+ton_vm = { git = 'https://github.com/tonlabs/ever-vm.git', tag = '1.9.9' }
 
 [features]
 gosh = [  ]
