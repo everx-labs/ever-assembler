@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.4.55
+
+- Added BLS primitives
+
 ## Version 1.4.42
 
 - Added BURN primitive
