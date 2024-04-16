@@ -1,8 +1,8 @@
 [package]
 build = 'build.rs'
 edition = '2021'
-name = 'ton_labs_assembler'
-version = '1.4.55'
+name = 'ever_assembler'
+version = '1.5.1'
 
 [dependencies]
 clap = { features = [ 'derive' ], version = '4.3' }
@@ -13,8 +13,8 @@ num = '0.4'
 num-traits = '0.2'
 serde = { features = [ 'derive' ], version = '1.0' }
 serde_json = '1.0'
-ton_types = { branch = 'master', git = 'https://github.com/tonlabs/ever-types.git' }
-ton_vm = { branch = 'master', git = 'https://github.com/tonlabs/ever-vm.git' }
+ever_block = { git = 'https://github.com/everx-labs/ever-block.git', tag = '1.10.0' }
+ever_vm = { git = 'https://github.com/everx-labs/ever-vm.git', tag = '2.1.1' }
 
 [features]
 gosh = [  ]

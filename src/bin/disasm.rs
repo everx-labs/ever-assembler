@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 TON Labs. All Rights Reserved.
+ * Copyright (C) 2023 EverX. All Rights Reserved.
  *
  * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
  * this file except in compliance with the License.
@@ -7,7 +7,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific TON DEV software governing permissions and
+ * See the License for the specific EVERX DEV software governing permissions and
  * limitations under the License.
  */
 
@@ -16,8 +16,8 @@ use std::{process::ExitCode, collections::HashSet, io::Write};
 use clap::{Parser, Subcommand};
 
 use failure::format_err;
-use ton_labs_assembler::disasm::{fmt::print_tree_of_cells, loader::Loader, disasm_ex};
-use ton_types::{Cell, Status, read_boc, SliceData, write_boc};
+use ever_assembler::disasm::{fmt::print_tree_of_cells, loader::Loader, disasm_ex};
+use ever_block::{Cell, Status, read_boc, SliceData, write_boc};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
