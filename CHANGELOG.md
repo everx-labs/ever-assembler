@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.5.0
+
+- crate was renamed from `ton_assembler` to `ever_assembler`
+
 ## Version 1.4.55
 
 - Added BLS primitives

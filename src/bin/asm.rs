@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 TON Labs. All Rights Reserved.
+ * Copyright (C) 2022 EverX. All Rights Reserved.
  *
  * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
  * this file except in compliance with the License.
@@ -7,7 +7,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific TON DEV software governing permissions and
+ * See the License for the specific EVERX DEV software governing permissions and
  * limitations under the License.
  */
 
@@ -15,8 +15,8 @@ use std::{error::Error, io::Write, process::ExitCode};
 
 use clap::Parser;
 
-use ton_labs_assembler::{DbgInfo, Engine, Units};
-use ton_types::Cell;
+use ever_assembler::{DbgInfo, Engine, Units};
+use ever_block::Cell;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -67,7 +67,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
 }
 
 fn write_boc(cell: &Cell, output: &str) -> Result<(), Box<dyn Error>> {
-    let bytes = ton_types::write_boc(cell)?;
+    let bytes = ever_block::write_boc(cell)?;
     let mut file = std::fs::File::create(output)?;
     file.write_all(&bytes)?;
     Ok(())

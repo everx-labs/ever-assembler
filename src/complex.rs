@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2019-2021 TON Labs. All Rights Reserved.
+* Copyright (C) 2019-2023 EverX. All Rights Reserved.
 *
 * Licensed under the SOFTWARE EVALUATION License (the "License"); you may not use
 * this file except in compliance with the License.
@@ -7,13 +7,13 @@
 * Unless required by applicable law or agreed to in writing, software
 * distributed under the License is distributed on an "AS IS" BASIS,
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific TON DEV software governing permissions and
+* See the License for the specific EVERX DEV software governing permissions and
 * limitations under the License.
 */
 
 use std::collections::{BTreeMap, HashMap};
 use std::{marker::PhantomData, ops::Range};
-use ton_types::{BuilderData, Cell, HashmapE, HashmapType, SliceData, Status};
+use ever_block::{BuilderData, Cell, HashmapE, HashmapType, SliceData, Status};
 use failure::format_err;
 
 use super::errors::{
@@ -748,7 +748,7 @@ fn compile_inline_computed_cell(engine: &mut Engine, par: &[&str], destination: 
     };
 
     // initialize and run vm
-    let mut vm = ton_vm::executor::Engine::with_capabilities(capabilities).setup_with_libraries(
+    let mut vm = ever_vm::executor::Engine::with_capabilities(capabilities).setup_with_libraries(
         code, None, None, None, vec![]);
     match vm.execute() {
         Err(_e) => {
@@ -819,7 +819,7 @@ fn compile_library_cell(_engine: &mut Engine, par: &[&str], destination: &mut Un
 
     let mut b = BuilderData::with_raw(vec!(0x02), 8)?;
     b.append_raw(hash.as_slice(), 256)?;
-    b.set_type(ton_types::CellType::LibraryReference);
+    b.set_type(ever_block::CellType::LibraryReference);
 
     let mut dbg = DbgNode::default();
     dbg.append_node(DbgNode::default());
