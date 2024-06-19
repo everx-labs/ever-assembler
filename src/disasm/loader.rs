@@ -106,7 +106,7 @@ macro_rules! create_handler_3r {
 macro_rules! check {
     ($expr:expr) => {
         if !$expr {
-            return Err(failure::err_msg(format!("check failed {}:{}", file!(), line!())))
+            ever_block::fail!("check failed {}:{}", file!(), line!())
         }
     };
 }
@@ -114,7 +114,7 @@ macro_rules! check {
 macro_rules! check_eq {
     ($lhs:expr, $rhs:literal) => {
         if $lhs != $rhs {
-            return Err(failure::err_msg(format!("check failed {}:{}", file!(), line!())))
+            ever_block::fail!("check failed {}:{}", file!(), line!())
         }
     };
 }

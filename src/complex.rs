@@ -13,8 +13,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::{marker::PhantomData, ops::Range};
-use ever_block::{BuilderData, Cell, HashmapE, HashmapType, SliceData, Status};
-use failure::format_err;
+use ever_block::{error, BuilderData, Cell, HashmapE, HashmapType, SliceData, Status};
 
 use super::errors::{
     OperationError, ParameterError,
@@ -623,13 +622,13 @@ fn compile_inline(engine: &mut Engine, par: &[&str], destination: &mut Units, _p
 fn compile_code_dict_cell(engine: &mut Engine, par: &[&str], destination: &mut Units, _pos: DbgPos) -> CompileResult {
     par.assert_len(2)?;
     let dict_key_bitlen = par[0].parse::<usize>()
-        .map_err(|_| OperationError::CodeDictConstruction)?;
+        .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
     let tokens = par[1]
-        .split(&[' ', '\t', '\n', ',', '='])
+        .split(&[' ', '\t', '\n', '\r', ',', '='])
         .filter(|t| !t.is_empty())
         .collect::<Vec<_>>();
     if tokens.len().is_odd() {
-        return Err(OperationError::CodeDictConstruction)
+        return Err(OperationError::CodeDictConstruction("Odd number of tokens".to_string()))
     }
 
     let mut map = HashMap::new();
@@ -639,18 +638,18 @@ fn compile_code_dict_cell(engine: &mut Engine, par: &[&str], destination: &mut U
         // parse the key
         let key = pair[0];
         if !key.to_ascii_lowercase().starts_with('x') {
-            return Err(OperationError::CodeDictConstruction)
+            return Err(OperationError::CodeDictConstruction(format!("key {} should start with 'x'", key)))
         }
         let key_slice = SliceData::from_string(&key[1..])
             .map_err(|_| ParameterError::UnexpectedType.parameter("key"))?;
         if key_slice.remaining_bits() != dict_key_bitlen {
-            return Err(OperationError::CodeDictConstruction)
+            return Err(OperationError::CodeDictConstruction(format!("key {} should have {} bits", key, dict_key_bitlen)))
         }
 
         // get an assembled fragment by the name
         let name = pair[1];
         let (value_slice, mut value_dbg) = engine.named_units.get(name)
-            .ok_or(OperationError::CodeDictConstruction)?
+            .ok_or(OperationError::CodeDictConstruction(format!("Fragment {} is not defined", name)))?
             .clone()
             .finalize();
 
@@ -661,17 +660,17 @@ fn compile_code_dict_cell(engine: &mut Engine, par: &[&str], destination: &mut U
             let value_cell = value_slice.clone().into_cell();
             info.append(&mut value_dbg);
             dict.setref(key_slice.clone(), &value_cell)
-                .map_err(|_| OperationError::CodeDictConstruction)?;
+                .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
         }
     }
 
     // update debug info
     for (key, (mut value_dbg, value_slice)) in map {
-        let value_slice_after = dict.get(key)
-            .map_err(|_| OperationError::CodeDictConstruction)?
-            .ok_or(OperationError::CodeDictConstruction)?;
+        let value_slice_after = dict.get(key.clone())
+            .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?
+            .ok_or(OperationError::CodeDictConstruction(format!("Value for key {} is not found", key)))?;
         adjust_debug_map(&mut value_dbg, value_slice, value_slice_after)
-            .map_err(|_| OperationError::CodeDictConstruction)?;
+            .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
         info.append(&mut value_dbg);
     }
 
@@ -689,7 +688,7 @@ fn adjust_debug_map(map: &mut DbgInfo, before: SliceData, after: SliceData) -> S
     let hash_before = before.cell().repr_hash();
     let hash_after = after.cell().repr_hash();
     let entry_before = map.remove(&hash_before)
-        .ok_or_else(|| format_err!("Failed to remove old value."))?;
+        .ok_or_else(|| error!("Failed to remove old value."))?;
 
     let adjustment = after.pos();
     let mut entry_after = BTreeMap::new();

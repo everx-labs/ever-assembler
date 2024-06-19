@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.6.1
+
+- Use modern crates anyhow and thiserror instead of failure
+- 
+## Version 1.6.0
+
+- fix `parse_slice_base`
+
 ## Version 1.5.0
 
 - crate was renamed from `ton_assembler` to `ever_assembler`
