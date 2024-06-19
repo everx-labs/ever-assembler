@@ -2,7 +2,7 @@
 build = 'build.rs'
 edition = '2021'
 name = 'ever_assembler'
-version = '1.5.9'
+version = '1.6.0'
 
 [dependencies]
 clap = { features = [ 'derive' ], version = '4.3' }
