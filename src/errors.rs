@@ -11,6 +11,7 @@
 * limitations under the License.
 */
 
+use ever_block::Error;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -51,12 +52,12 @@ pub enum OperationError {
     CellComputeInternal,
     FragmentIsAlreadyDefined(String),
     FragmentIsNotDefined(String),
-    CodeDictConstruction,
+    CodeDictConstruction(String),
     Internal(String),
 }
 
-impl From<failure::Error> for OperationError {
-    fn from(e: failure::Error) -> Self {
+impl From<Error> for OperationError {
+    fn from(e: Error) -> Self {
         Self::Internal(e.to_string())
     }
 }
@@ -198,7 +199,7 @@ impl fmt::Display for OperationError {
             CellComputeInternal => write!(f, "Failed to compute the cell"),
             FragmentIsAlreadyDefined(name) => write!(f, "Fragment {} is already defined", name),
             FragmentIsNotDefined(name) => write!(f, "Fragment {} is not defined", name),
-            CodeDictConstruction => write!(f, "Failed to construct code dictionary"),
+            CodeDictConstruction(message) => write!(f, "Failed to construct code dictionary {}", message),
             Internal(message) => write!(f, "{}", message),
         }
     }
