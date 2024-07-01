@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.6.3
+
+- fix `parse_slice`
+
+
 ## Version 1.6.1
 
 - Use modern crates anyhow and thiserror instead of failure

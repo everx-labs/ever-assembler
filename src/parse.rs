@@ -149,10 +149,7 @@ pub(super) fn parse_register(
 }
 
 pub fn parse_slice(slice: &str, bits: usize) -> Result<Vec<u8>, ParameterError> {
-    if slice.len() <= 1 {
-        log::error!(target: "compile", "empty string");
-        Err(ParameterError::UnexpectedType)
-    } else if slice.chars().next().unwrap().to_ascii_uppercase() != 'X' {
+    if slice.chars().next().unwrap().to_ascii_uppercase() != 'X' {
         log::error!(target: "compile", "base not set");
         Err(ParameterError::UnexpectedType)
     } else {
