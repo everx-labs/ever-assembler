@@ -2,7 +2,7 @@
 build = 'build.rs'
 edition = '2021'
 name = 'ever_assembler'
-version = '1.6.2'
+version = '1.6.3'
 
 [dependencies]
 anyhow = '1.0'
