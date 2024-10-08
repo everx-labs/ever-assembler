@@ -72,7 +72,6 @@ impl Engine {
         BREMBITS                             => 0xCF, 0x35
         BREMBITREFS                          => 0xCF, 0x37
         BREMREFS                             => 0xCF, 0x36
-        BURN                                 => 0xFB, 0x09
         BUYGAS                               => 0xF8, 0x02
         CADR                                 => 0x6F, 0xB4
         CADDR                                => 0x6F, 0xD4
@@ -873,7 +872,81 @@ impl Engine {
         BLS_G2_ISZERO                       => 0xF9, 0x30, 0x28
         BLS_PAIRING                         => 0xF9, 0x30, 0x30
         BLS_PUSHR                           => 0xF9, 0x30, 0x31
+    }
 
+    simple_commands! {
+        enumerate_ton_commands
+        STORAGEFEES                          => 0xF8, 0x2C
+        GASCONSUMED                          => 0xF8, 0x07
+        INCOMINGVALUE                        => 0xF8, 0x2B
+        DUEPAYMENT                            => 0xF8, 0x2F
+        SENDMSG                               => 0xFB, 0x08
+
+        MULADDDIVMOD                         => 0xA9, 0x80
+        MULADDDIVMODR                        => 0xA9, 0x81
+        MULADDDIVMODC                        => 0xA9, 0x82
+        QMULADDDIVMOD                        => 0xB7, 0xA9, 0x80
+        QMULADDDIVMODR                       => 0xB7, 0xA9, 0x81
+        QMULADDDIVMODC                       => 0xB7, 0xA9, 0x82
+
+        ADDDIVMOD                             => 0xA9, 0x00
+        ADDDIVMODR                            => 0xA9, 0x01
+        ADDDIVMODC                            => 0xA9, 0x02
+        QADDDIVMOD                            => 0xB7, 0xA9, 0x00
+        QADDDIVMODR                           => 0xB7, 0xA9, 0x01
+        QADDDIVMODC                           => 0xB7, 0xA9, 0x02
+
+        ADDRSHIFTMOD                          => 0xA9, 0x20
+        ADDRSHIFTMODR                         => 0xA9, 0x21
+        ADDRSHIFTMODC                         => 0xA9, 0x22
+        QADDRSHIFTMOD                         => 0xB7, 0xA9, 0x20
+        QADDRSHIFTMODR                        => 0xB7, 0xA9, 0x21
+        QADDRSHIFTMODC                        => 0xB7, 0xA9, 0x22
+
+        MULADDRSHIFTMOD                       => 0xA9, 0xA0
+        MULADDRSHIFTRMOD                      => 0xA9, 0xA1
+        MULADDRSHIFTCMOD                      => 0xA9, 0xA2
+        QMULADDRSHIFTMOD                      => 0xB7, 0xA9, 0xA0
+        QMULADDRSHIFTRMOD                     => 0xB7, 0xA9, 0xA1
+        QMULADDRSHIFTCMOD                     => 0xB7, 0xA9, 0xA2
+
+        LSHIFTADDDIVMOD                       => 0xA9, 0xC0
+        LSHIFTADDDIVMODR                      => 0xA9, 0xC1
+        LSHIFTADDDIVMODC                      => 0xA9, 0xC2
+        QLSHIFTADDDIVMOD                      => 0xB7, 0xA9, 0xC0
+        QLSHIFTADDDIVMODR                     => 0xB7, 0xA9, 0xC1
+        QLSHIFTADDDIVMODC                     => 0xB7, 0xA9, 0xC2
+
+        HASHEXT_SHA256                        => 0xF9, 0x04, 0x00
+        HASHEXT_SHA512                        => 0xF9, 0x04, 0x01
+        HASHEXT_BLAKE2B                       => 0xF9, 0x04, 0x02
+        HASHEXT_KECCAK256                     => 0xF9, 0x04, 0x03
+        HASHEXT_KECCAK512                     => 0xF9, 0x04, 0x04
+
+        ECRECOVER                             => 0xF9, 0x12
+
+        HASHEXTA_SHA256                       => 0xF9, 0x06, 0x00
+        HASHEXTA_SHA512                       => 0xF9, 0x06, 0x01
+        HASHEXTA_BLAKE2B                      => 0xF9, 0x06, 0x02
+        HASHEXTA_KECCAK256                    => 0xF9, 0x06, 0x03
+        HASHEXTA_KECCAK512                    => 0xF9, 0x06, 0x04
+
+        P256_CHKSIGNU                         => 0xF9, 0x14
+        P256_CHKSIGNS                         => 0xF9, 0x15
+
+        RIST255_FROMHASH                      => 0xF9, 0x20
+        RIST255_VALIDATE                      => 0xF9, 0x21
+        RIST255_ADD                           => 0xF9, 0x22
+        RIST255_SUB                           => 0xF9, 0x23
+        RIST255_MUL                           => 0xF9, 0x24
+        RIST255_MULBASE                       => 0xF9, 0x25
+        RIST255_PUSHL                         => 0xF9, 0x26
+
+        RIST255_QVALIDATE                     => 0xB7, 0xF9, 0x21
+        RIST255_QADD                          => 0xB7, 0xF9, 0x22
+        RIST255_QSUB                          => 0xB7, 0xF9, 0x23
+        RIST255_QMUL                          => 0xB7, 0xF9, 0x24
+        RIST255_QMULBASE                      => 0xB7, 0xF9, 0x25
     }
 
     fn add_commands<'a>(&mut self, iter: impl IntoIterator<Item = &'a (&'static str, CompileHandler)>) {
@@ -896,5 +969,7 @@ impl Engine {
         self.add_commands(Self::enumerate_groth_commands());
 
         self.add_commands(Self::enumerate_bls_commands());
+
+        self.add_commands(Self::enumerate_ton_commands());
     }
 }

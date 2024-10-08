@@ -2,15 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.7.0
+
+- Add ton commands.
+
 ## Version 1.6.3
 
 - fix `parse_slice`
 
-
 ## Version 1.6.1
 
-- Use modern crates anyhow and thiserror instead of failure
-- 
+- Use modern crates `anyhow` and `thiserror` instead of `failure`
+
 ## Version 1.6.0
 
 - fix `parse_slice_base`
