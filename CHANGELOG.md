@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.8.0
+
+- Add ton opcodes
+- cargo clippy --fix
+
 ## Version 1.7.0
 
 - Add ton commands.

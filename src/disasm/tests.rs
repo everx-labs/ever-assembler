@@ -64,7 +64,7 @@ fn round_trip_test(filename: &str, check_bin: bool) -> Status {
             println!("{}", asm0);
             print_tree_of_cells(&toc0);
             print_tree_of_cells(&toc1);
-            assert!(false);
+            unreachable!();
         }
     }
     Ok(())

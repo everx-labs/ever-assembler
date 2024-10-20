@@ -56,7 +56,7 @@ fn print_code_dict(cell: &Cell, key_size: usize, indent: &str) -> Result<String>
 }
 
 fn print_dictpushconst(insn: &Instruction, indent: &str) -> String {
-    let key_length = if let Some(InstructionParameter::Length(l)) = insn.params().get(0) {
+    let key_length = if let Some(InstructionParameter::Length(l)) = insn.params().first() {
         *l
     } else {
         unreachable!()
@@ -138,7 +138,7 @@ impl Code {
                         continue
                     }
                     "IMPLICIT-JMP" => {
-                        if let Some(InstructionParameter::Code { code, cell }) = insn.params().get(0) {
+                        if let Some(InstructionParameter::Code { code, cell }) = insn.params().first() {
                             let hash = cell.as_ref().unwrap().repr_hash().to_hex_string();
                             text += &format!(".cell {{ ;; #{}\n", hash);
                             let inner_indent = String::from("  ") + indent;
@@ -167,7 +167,7 @@ impl Code {
     }
 }
 
-fn print_insn_params(params: &Vec<InstructionParameter>, indent: &str, full: bool, bytecode_width: usize) -> String {
+fn print_insn_params(params: &[InstructionParameter], indent: &str, full: bool, bytecode_width: usize) -> String {
     use InstructionParameter::*;
 
     let mut text = String::new();

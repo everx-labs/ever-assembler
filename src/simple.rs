@@ -876,11 +876,19 @@ impl Engine {
 
     simple_commands! {
         enumerate_ton_commands
-        STORAGEFEES                          => 0xF8, 0x2C
+
         GASCONSUMED                          => 0xF8, 0x07
+        SENDMSG                              => 0xFB, 0x08
         INCOMINGVALUE                        => 0xF8, 0x2B
-        DUEPAYMENT                            => 0xF8, 0x2F
-        SENDMSG                               => 0xFB, 0x08
+        STORAGEFEES                          => 0xF8, 0x2C
+        DUEPAYMENT                           => 0xF8, 0x2F
+        GETGASFEE                            => 0xF8, 0x36
+        GETSTORAGEFEE                        => 0xF8, 0x37
+        GETFORWARDFEE                        => 0xF8, 0x38
+        GETPRECOMPILEDGAS                    => 0xF8, 0x39
+        GETORIGINALFWDFEE                    => 0xF8, 0x3A
+        GETGASFEESIMPLE                      => 0xF8, 0x3B
+        GETFORWARDFEESIMPLE                  => 0xF8, 0x3C
 
         MULADDDIVMOD                         => 0xA9, 0x80
         MULADDDIVMODR                        => 0xA9, 0x81
