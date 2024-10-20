@@ -160,7 +160,7 @@ fn subcommand_text(filename: String, stateinit: bool, full: bool) -> Status {
         println!("warning: boc contains {} roots, getting the first one", roots_count)
     }
 
-    let root0 = roots.get(0)
+    let root0 = roots.first()
         .ok_or_else(|| error!("failed to get root 0"))?;
     let cell = if stateinit {
         root0.reference(0)?
