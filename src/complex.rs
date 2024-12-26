@@ -161,6 +161,79 @@ fn compile_ifrefelseref(engine: &mut Engine, par: &[&str], destination: &mut Uni
     destination.write_composite_command(&[0xE3, 0x0F], vec!(cont1, cont2), dbg)
 }
 
+fn compile_dictpushconst(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    if par.len() == 1 {
+        let dict_key_bitlen = parse_const_u10(par[0])
+            .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
+        destination.write_command(&[0xF4, 0xA4 | (dict_key_bitlen >> 8) as u8, dict_key_bitlen as u8], DbgNode::from(pos))
+    }  else if par.len() == 2 {
+        let dict_key_bitlen = parse_const_u10(par[0])
+            .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))? as usize;
+        let tokens = par[1]
+            .split(&[' ', '\t', '\n', '\r', ',', '='])
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<_>>();
+        if tokens.len().is_odd() {
+            return Err(OperationError::CodeDictConstruction("Odd number of tokens".to_string()))
+        }
+
+        let mut map = HashMap::new();
+        let mut dict = HashmapE::with_bit_len(dict_key_bitlen);
+        let mut info = DbgInfo::default();
+        for pair in tokens.chunks(2) {
+            // parse the key
+            let key = pair[0];
+            if !key.to_ascii_lowercase().starts_with('x') {
+                return Err(OperationError::CodeDictConstruction(format!("key {} should start with 'x'", key)))
+            }
+            let key_slice = SliceData::from_string(&key[1..])
+                .map_err(|_| ParameterError::UnexpectedType.parameter("key"))?;
+            if key_slice.remaining_bits() != dict_key_bitlen {
+                return Err(OperationError::CodeDictConstruction(format!("key {} should have {} bits", key, dict_key_bitlen)))
+            }
+
+            // get an assembled fragment by the name
+            let name = pair[1];
+            let (value_slice, mut value_dbg) = engine.named_units.get(name)
+                .ok_or(OperationError::CodeDictConstruction(format!("Fragment {} is not defined", name)))?
+                .clone()
+                .finalize();
+
+            // try setting value slice as is, otherwise set as a cell
+            if dict.set(key_slice.clone(), &value_slice.clone()).is_ok() {
+                map.insert(key_slice.clone(), (value_dbg, value_slice.clone()));
+            } else {
+                let value_cell = value_slice.clone().into_cell();
+                info.append(&mut value_dbg);
+                dict.setref(key_slice.clone(), &value_cell)
+                    .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
+            }
+        }
+
+        // update debug info
+        for (key, (mut value_dbg, value_slice)) in map {
+            let value_slice_after = dict.get(key.clone())
+                .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?
+                .ok_or(OperationError::CodeDictConstruction(format!("Value for key {} is not found", key)))?;
+            adjust_debug_map(&mut value_dbg, value_slice, value_slice_after)
+                .map_err(|e| OperationError::CodeDictConstruction(e.to_string()))?;
+            info.append(&mut value_dbg);
+        }
+
+        let dict_cell = dict.data().cloned().unwrap_or_default();
+        let b = BuilderData::from_cell(&dict_cell)
+            .map_err(|_| ParameterError::UnexpectedType.parameter("parameter"))?;
+
+        let mut dbg = DbgNode::from(pos);
+        dbg.append_node(make_dbgnode(dict_cell, info));
+
+        destination.write_composite_command(&[0xF4, 0xA4 | (dict_key_bitlen >> 8) as u8, dict_key_bitlen as u8], vec!(b), dbg)
+    } else {
+        par.assert_len(2)?;
+        unreachable!()
+    }
+}
+
 fn compile_pushref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0x88], pos)
 }
@@ -855,6 +928,7 @@ impl Engine {
         self.handlers.insert("IFREFELSE",      compile_ifrefelse);
         self.handlers.insert("IFELSEREF",      compile_ifelseref);
         self.handlers.insert("IFREFELSEREF",   compile_ifrefelseref);
+        self.handlers.insert("DICTPUSHCONST",  compile_dictpushconst);
         self.handlers.insert("JMPDICT",        Engine::JMP);
         self.handlers.insert("JMPREF",         compile_jmpref);
         self.handlers.insert("LOGSTR",         compile_logstr);

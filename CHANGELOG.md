@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## Version 1.9.0
+- Support `DICTPUSHCONST` with dictionary argument.
+
 ## Version 1.8.0
 
 - Add ton opcodes
