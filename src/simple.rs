@@ -181,7 +181,6 @@ impl Engine {
         DICTMAXREF                           => 0xF4, 0x8B
         DICTMIN                              => 0xF4, 0x82
         DICTMINREF                           => 0xF4, 0x83
-        DICTPUSHCONST n = parse_const_u10    => 0xF4, 0xA4 | (n >> 8) as u8, n as u8
         DICTREMMAX                           => 0xF4, 0x9A
         DICTREMMAXREF                        => 0xF4, 0x9B
         DICTREMMIN                           => 0xF4, 0x92
