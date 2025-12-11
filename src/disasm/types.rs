@@ -36,7 +36,7 @@ impl Code {
     pub fn push(&mut self, insn: Instruction) {
         self.storage.push(insn)
     }
-    pub fn chunks_mut(&mut self, chunk_size: usize) -> ChunksMut<Instruction> {
+    pub fn chunks_mut(&mut self, chunk_size: usize) -> ChunksMut<'_, Instruction> {
         self.storage.chunks_mut(chunk_size)
     }
     pub fn iter(&self) -> impl Iterator<Item = &Instruction>{

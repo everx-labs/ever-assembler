@@ -119,6 +119,10 @@ fn compile_jmpref(engine: &mut Engine, par: &[&str], destination: &mut Units, po
     compile_ref(engine, par, destination, &[0xDB, 0x3D], pos)
 }
 
+fn compile_strefconst(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
+    compile_ref(engine, par, destination, &[0xCF, 0x20], pos)
+}
+
 fn compile_ifref(engine: &mut Engine, par: &[&str], destination: &mut Units, pos: DbgPos) -> CompileResult {
     compile_ref(engine, par, destination, &[0xE3, 0x00], pos)
 }
@@ -931,6 +935,7 @@ impl Engine {
         self.handlers.insert("DICTPUSHCONST",  compile_dictpushconst);
         self.handlers.insert("JMPDICT",        Engine::JMP);
         self.handlers.insert("JMPREF",         compile_jmpref);
+        self.handlers.insert("STREFCONST",     compile_strefconst);
         self.handlers.insert("LOGSTR",         compile_logstr);
         self.handlers.insert("LSHIFT",         Div::<Signaling>::lshift);
         self.handlers.insert("LSHIFTDIV",      Div::<Signaling>::lshiftdiv);

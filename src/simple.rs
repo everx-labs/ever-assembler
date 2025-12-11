@@ -701,7 +701,6 @@ impl Engine {
         STREF                                => 0xCC
         STREF2CONST                          => 0xCF, 0x21
         STREF3CONST                          => 0xCF, 0xE2
-        STREFCONST                           => 0xCF, 0x20
         STREFQ                               => 0xCF, 0x18
         STREFR                               => 0xCF, 0x14
         STREFRQ                              => 0xCF, 0x1C

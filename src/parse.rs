@@ -149,7 +149,7 @@ pub(super) fn parse_register(
 }
 
 pub fn parse_slice(slice: &str, bits: usize) -> Result<Vec<u8>, ParameterError> {
-    if slice.chars().next().unwrap().to_ascii_uppercase() != 'X' {
+    if !slice.chars().next().unwrap().eq_ignore_ascii_case(&'X') {
         log::error!(target: "compile", "base not set");
         Err(ParameterError::UnexpectedType)
     } else {
